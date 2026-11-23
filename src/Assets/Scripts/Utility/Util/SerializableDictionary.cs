@@ -11,9 +11,7 @@ public abstract class SerializableDictionaryBase
 	protected class Dictionary<TKey, TValue> : System.Collections.Generic.Dictionary<TKey, TValue>
 	{
 		public Dictionary() { }
-		public Dictionary(IEqualityComparer<TKey> comparer) : base(comparer) { }
 		public Dictionary(IDictionary<TKey, TValue> dict) : base(dict) { }
-		public Dictionary(IDictionary<TKey, TValue> dict, IEqualityComparer<TKey> comparer) : base(dict, comparer) { }
 		public Dictionary(SerializationInfo info, StreamingContext context) : base(info, context) { }
 	}
 }
@@ -26,53 +24,15 @@ public abstract class SerializableDictionaryBase<TKey, TValue, TValueStorage> : 
 	TKey[] m_keys;
 	[SerializeField]
 	TValueStorage[] m_values;
-	readonly IEqualityComparer<TKey> m_keyComparer;
 
 	public SerializableDictionaryBase()
 	{
-		m_keyComparer = CreateKeyComparer();
-		m_dict = new Dictionary<TKey, TValue>(m_keyComparer);
+		m_dict = new Dictionary<TKey, TValue>();
 	}
 
 	public SerializableDictionaryBase(IDictionary<TKey, TValue> dict)
 	{
-		m_keyComparer = CreateKeyComparer();
-		m_dict = new Dictionary<TKey, TValue>(dict, m_keyComparer);
-	}
-
-	private static IEqualityComparer<TKey> CreateKeyComparer()
-	{
-		if (typeof(UnityEngine.Object).IsAssignableFrom(typeof(TKey)))
-			return new UnityObjectKeyComparer();
-
-		return EqualityComparer<TKey>.Default;
-	}
-
-	// UnityEngine.Object keys can have unstable custom hash/equality while assets
-	// are still deserializing. InstanceID-based comparison avoids key collapse.
-	private sealed class UnityObjectKeyComparer : IEqualityComparer<TKey>
-	{
-		public bool Equals(TKey x, TKey y)
-		{
-			var ux = x as object as UnityEngine.Object;
-			var uy = y as object as UnityEngine.Object;
-
-			if (ReferenceEquals(ux, null) || ReferenceEquals(uy, null))
-				return ReferenceEquals(ux, uy);
-
-			return ux.GetInstanceID() == uy.GetInstanceID();
-		}
-
-		public int GetHashCode(TKey obj)
-		{
-			var uo = obj as object as UnityEngine.Object;
-			return ReferenceEquals(uo, null) ? 0 : uo.GetInstanceID();
-		}
-	}
-
-	void EnsureDictionary()
-	{
-		m_dict ??= new Dictionary<TKey, TValue>(m_keyComparer ?? CreateKeyComparer());
+		m_dict = new Dictionary<TKey, TValue>(dict);
 	}
 
 	protected abstract void SetValue(TValueStorage[] storage, int i, TValue value);
@@ -80,7 +40,9 @@ public abstract class SerializableDictionaryBase<TKey, TValue, TValueStorage> : 
 
 	public void CopyFrom(IDictionary<TKey, TValue> dict)
 	{
-		EnsureDictionary();
+		if (ReferenceEquals(this, dict) || ReferenceEquals(m_dict, dict))
+			return;
+
 		m_dict.Clear();
 		foreach (var kvp in dict)
 		{
@@ -90,7 +52,6 @@ public abstract class SerializableDictionaryBase<TKey, TValue, TValueStorage> : 
 
 	public void OnAfterDeserialize()
 	{
-		EnsureDictionary();
 		if (m_keys != null && m_values != null && m_keys.Length == m_values.Length)
 		{
 			m_dict.Clear();
@@ -107,7 +68,6 @@ public abstract class SerializableDictionaryBase<TKey, TValue, TValueStorage> : 
 
 	public void OnBeforeSerialize()
 	{
-		EnsureDictionary();
 		int n = m_dict.Count;
 		m_keys = new TKey[n];
 		m_values = new TValueStorage[n];
@@ -245,9 +205,7 @@ public abstract class SerializableDictionaryBase<TKey, TValue, TValueStorage> : 
 
 	protected SerializableDictionaryBase(SerializationInfo info, StreamingContext context)
 	{
-		m_keyComparer = CreateKeyComparer();
-		var deserialized = new Dictionary<TKey, TValue>(info, context);
-		m_dict = new Dictionary<TKey, TValue>(deserialized, m_keyComparer);
+		m_dict = new Dictionary<TKey, TValue>(info, context);
 	}
 
 	public void GetObjectData(SerializationInfo info, StreamingContext context)
