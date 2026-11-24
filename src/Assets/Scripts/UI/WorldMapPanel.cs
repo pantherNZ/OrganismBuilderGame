@@ -84,7 +84,6 @@ public class WorldMapPanel : MonoBehaviour
 
     // Map data
     WorldMapData _mapData;
-    WorldMapNode _selectedNode;
     WorldMapNode _hoveredNode;
     WorldMapNode _hoverPopupNode;
 
@@ -119,8 +118,7 @@ public class WorldMapPanel : MonoBehaviour
         _travelBtn = _root.Q<Button>("wmp-travel-btn");
         _openSpeciesBtn = _root.Q<Button>("wmp-open-species-btn");
 
-        if (_openSpeciesBtn != null)
-            _travelBtn.clicked += OnTravelClicked;
+        _travelBtn.clicked += OnTravelClicked;
         _openSpeciesBtn.clicked += OnOpenSpeciesEditorClicked;
 
         ShowEmpty();
@@ -135,7 +133,6 @@ public class WorldMapPanel : MonoBehaviour
     public void Show(WorldMapData mapData)
     {
         _mapData = mapData ?? throw new ArgumentNullException(nameof(mapData));
-        _selectedNode = null;
         _hoveredNode = null;
         ShowEmpty();
 
@@ -294,7 +291,6 @@ public class WorldMapPanel : MonoBehaviour
 
         el.RegisterCallback<PointerEnterEvent>(_ => OnNodePointerEnter(node));
         el.RegisterCallback<PointerLeaveEvent>(_ => OnNodePointerLeave(node));
-        el.RegisterCallback<ClickEvent>(_ => SelectNode(node));
         return el;
     }
 
@@ -373,11 +369,23 @@ public class WorldMapPanel : MonoBehaviour
 
         _hoverName.text = node.DisplayName;
         _hoverDescription.text = GetNodeDescription(node);
-        _hoverDifficulty.text = $"Difficulty: {GetNodeDifficultyLabel(node)}";
 
         bool canTravel = node.IsAccessible && !node.IsVisited && node.Type != WorldMapNodeType.Start;
         _hoverEnterBtn.SetEnabled(canTravel);
         _hoverEnterBtn.visible = canTravel;
+    }
+
+    static string GetNodeDescription(WorldMapNode node)
+    {
+        int enemyCount = node.Encounter?.EnemyGroup?.Members?.Count ?? 0;
+        return node.Type switch
+        {
+            WorldMapNodeType.Start => "Home waters. Regroup and prepare before venturing deeper.",
+            WorldMapNodeType.Shop => "A mutation market with new parts and species for mutation points.",
+            WorldMapNodeType.Boss => "An apex threat controls this territory. Expect a decisive battle.",
+            WorldMapNodeType.Elite => $"A dangerous rival force patrols this zone. Enemies spotted: {enemyCount}.",
+            _ => $"Open-water skirmish area with roaming predators. Enemies spotted: {enemyCount}.",
+        };
     }
 
     void PositionHoverPopup(WorldMapNode node)
@@ -451,117 +459,11 @@ public class WorldMapPanel : MonoBehaviour
     void SelectNode(WorldMapNode node)
     {
         if (!node.IsAccessible)
-        {
             return;
-        }
 
         Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
 
-        // Deselect previous.
-        if (_selectedNode != null && _nodeElements.TryGetValue(_selectedNode.Position, out var prev))
-            prev.RemoveFromClassList("wmp-node--selected");
-
-        _selectedNode = node;
-
-        if (_nodeElements.TryGetValue(node.Position, out var el))
-            el.AddToClassList("wmp-node--selected");
-
-        PopulateInfoPanel(node);
         RefreshHoverPresentation();
-    }
-
-    void PopulateInfoPanel(WorldMapNode node)
-    {
-        _infoEmpty.style.display = DisplayStyle.None;
-        _infoDetail.style.display = DisplayStyle.Flex;
-        _infoDetail.RemoveFromClassList("wmp-info-detail--hidden");
-
-        bool isUnknown = IsNodeUnknown(node);
-        _infoStatus.RemoveFromClassList("wmp-info-status--inaccessible");
-        _infoStatus.RemoveFromClassList("wmp-info-status--unknown");
-
-        if (isUnknown)
-        {
-            _infoName.text = "UNKNOWN";
-            _infoType.text = "?";
-            _infoType.ClearClassList();
-            _infoType.AddToClassList("wmp-info-type-badge");
-            _infoType.AddToClassList("wmp-info-badge--unknown");
-            _infoDescription.text = "UNKNOWN";
-            _infoDifficulty.text = "UNKNOWN";
-            _infoEnemyList.Clear();
-
-            var unknownLabel = new Label("UNKNOWN");
-            unknownLabel.AddToClassList("wmp-info-enemy-name");
-            _infoEnemyList.Add(unknownLabel);
-
-            _infoStatus.text = "UNKNOWN";
-            _infoStatus.AddToClassList("wmp-info-status--unknown");
-            _travelBtn.SetEnabled(false);
-            _travelBtn.visible = false;
-            return;
-        }
-
-        _infoName.text = node.DisplayName;
-        _infoDescription.text = GetNodeDescription(node);
-        _infoDifficulty.text = $"Difficulty: {GetNodeDifficultyLabel(node)}";
-
-        // Type badge.
-        _infoType.text = node.IsVisited ? "CLEARED" : node.Type.ToString().ToUpper();
-        _infoType.ClearClassList();
-        _infoType.AddToClassList("wmp-info-type-badge");
-        _infoType.AddToClassList(node.IsVisited ? "wmp-info-badge--visited" : TypeBadgeClass(node.Type));
-
-        // Enemy list.
-        _infoEnemyList.Clear();
-        if (node.Encounter?.EnemyGroup?.Members != null)
-        {
-            foreach (var species in node.Encounter.EnemyGroup.Members)
-            {
-                var row = new VisualElement();
-                row.AddToClassList("wmp-info-enemy-entry");
-
-                var dot = new VisualElement();
-                dot.AddToClassList("wmp-info-enemy-dot");
-                row.Add(dot);
-
-                var nameLbl = new Label(species.Name);
-                nameLbl.AddToClassList("wmp-info-enemy-name");
-                row.Add(nameLbl);
-
-                var stats = new Label($"HP {species.BaseHealth}  ATK {species.BaseAttack}");
-                stats.AddToClassList("wmp-info-enemy-stats");
-                row.Add(stats);
-
-                _infoEnemyList.Add(row);
-            }
-        }
-        else if (node.Type == WorldMapNodeType.Start)
-        {
-            var hint = new Label("Safe zone — no combat here.");
-            hint.AddToClassList("wmp-info-enemy-name");
-            _infoEnemyList.Add(hint);
-        }
-
-        // Status text.
-        if (node.IsVisited)
-        {
-            _infoStatus.text = "✓ Already cleared";
-        }
-        else if (!node.IsAccessible)
-        {
-            _infoStatus.text = "✗ Not yet reachable";
-            _infoStatus.AddToClassList("wmp-info-status--inaccessible");
-        }
-        else
-        {
-            _infoStatus.text = "";
-        }
-
-        // Travel button.
-        bool canTravel = node.IsAccessible && !node.IsVisited && node.Type != WorldMapNodeType.Start;
-        _travelBtn.SetEnabled(canTravel);
-        _travelBtn.visible = canTravel;
     }
 
     void ShowEmpty()
@@ -573,12 +475,12 @@ public class WorldMapPanel : MonoBehaviour
 
     void OnTravelClicked()
     {
-        if (_selectedNode == null)
+        if (_hoveredNode == null)
             return;
-        if (!_selectedNode.IsAccessible || _selectedNode.IsVisited)
+        if (!_hoveredNode.IsAccessible || _hoveredNode.IsVisited)
             return;
 
-        OnTravelRequested?.Invoke(_selectedNode);
+        OnTravelRequested?.Invoke(_hoveredNode);
 
         Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
@@ -607,13 +509,7 @@ public class WorldMapPanel : MonoBehaviour
         painter.strokeColor = new Color(0.50f, 0.82f, 0.97f, Mathf.Lerp(0.55f, 0.95f, pulse));
         painter.lineWidth = Mathf.Lerp(2.5f, 4f, pulse);
 
-        if (_selectedNode != null && _selectedNode.IsAccessible && _selectedNode != _mapData.PlayerNode)
-        {
-            DrawPathToNode(painter, from, _selectedNode);
-        }
-
-        if (_hoveredNode != null && _hoveredNode != _selectedNode &&
-            _hoveredNode.IsAccessible && _hoveredNode != _mapData.PlayerNode)
+        if (_hoveredNode != null && _hoveredNode.IsAccessible && _hoveredNode != _mapData.PlayerNode)
         {
             DrawPathToNode(painter, from, _hoveredNode);
         }
@@ -754,38 +650,6 @@ public class WorldMapPanel : MonoBehaviour
     }
 
     Vector2 CanvasPosCenter(WorldMapNode node) => CanvasPos(node);
-
-    static string GetNodeDescription(WorldMapNode node)
-    {
-        int enemyCount = node.Encounter?.EnemyGroup?.Members?.Count ?? 0;
-        return node.Type switch
-        {
-            WorldMapNodeType.Start => "Home waters. Regroup and prepare before venturing deeper.",
-            WorldMapNodeType.Shop => "A mutation market with new parts and species for mutation points.",
-            WorldMapNodeType.Boss => "An apex threat controls this territory. Expect a decisive battle.",
-            WorldMapNodeType.Elite => $"A dangerous rival force patrols this zone. Enemies spotted: {enemyCount}.",
-            _ => $"Open-water skirmish area with roaming predators. Enemies spotted: {enemyCount}.",
-        };
-    }
-
-    static string GetNodeDifficultyLabel(WorldMapNode node)
-    {
-        int score = node.Type switch
-        {
-            WorldMapNodeType.Start => 0,
-            WorldMapNodeType.Combat => 2,
-            WorldMapNodeType.Elite => 4,
-            WorldMapNodeType.Boss => 6,
-            WorldMapNodeType.Shop => 0,
-            _ => 2,
-        };
-
-        if (score <= 1) return "Very Low";
-        if (score <= 3) return "Low";
-        if (score <= 5) return "Medium";
-        if (score <= 7) return "High";
-        return "Very High";
-    }
 
     static int NodeHalfForType(WorldMapNodeType t) => t switch
     {
