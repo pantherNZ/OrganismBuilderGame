@@ -106,19 +106,8 @@ public class WorldMapPanel : MonoBehaviour
         _mapTitle.pickingMode = PickingMode.Ignore;
         _dragHint.pickingMode = PickingMode.Ignore;
 
-        // Info panel
-        _infoEmpty = _root.Q<VisualElement>("wmp-info-empty");
-        _infoDetail = _root.Q<VisualElement>("wmp-info-detail");
-        _infoName = _root.Q<Label>("wmp-info-name");
-        _infoType = _root.Q<Label>("wmp-info-type");
-        _infoDescription = _root.Q<Label>("wmp-info-description");
-        _infoDifficulty = _root.Q<Label>("wmp-info-difficulty");
-        _infoEnemyList = _root.Q<VisualElement>("wmp-info-enemy-list");
-        _infoStatus = _root.Q<Label>("wmp-info-status");
-        _travelBtn = _root.Q<Button>("wmp-travel-btn");
         _openSpeciesBtn = _root.Q<Button>("wmp-open-species-btn");
 
-        _travelBtn.clicked += OnTravelClicked;
         _openSpeciesBtn.clicked += OnOpenSpeciesEditorClicked;
 
         ShowEmpty();
