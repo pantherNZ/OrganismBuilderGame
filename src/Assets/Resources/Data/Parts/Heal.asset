@@ -18,8 +18,8 @@ MonoBehaviour:
     v: 1093769741
     hasValue: 1
   _triggerHashRecalculate: 0
-  path: Data/Parts/Defence/Defensive_Growth
-  displayName: Reflect
+  path: Data/Parts/Heal
+  displayName: Heal
   Description: Heals for 1
   Rarity: 1
   Archetype: 2

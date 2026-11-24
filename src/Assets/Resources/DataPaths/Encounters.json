@@ -3,9 +3,14 @@
         "Data/Encounters/Basic_Defender",
         "Data/Encounters/Basic_Forager",
         "Data/Encounters/Basic_Predator",
-        "Data/Encounters/FirstEncounter_Defender",
-        "Data/Encounters/FirstEncounter_Forager",
-        "Data/Encounters/FirstEncounter_Predator",
-        "Data/Encounters/ShopEncounter"
+        "Data/Encounters/EnemyTrio",
+        "Data/Encounters/Healer",
+        "Data/Encounters/HighArmour",
+        "Data/Encounters/Reflecter",
+        "Data/Encounters/ShopEncounter",
+        "Data/Encounters/Starter_Defender",
+        "Data/Encounters/Starter_Forager",
+        "Data/Encounters/Starter_Predator",
+        "Data/Encounters/StealStrengthPassive"
     ]
 }

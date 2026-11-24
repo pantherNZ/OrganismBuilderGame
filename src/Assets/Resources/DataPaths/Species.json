@@ -1,10 +1,14 @@
 {
     "Items": [
-        "Data/Species/Basic_Defender",
-        "Data/Species/Basic_Forager",
-        "Data/Species/Basic_Predator",
         "Data/Species/FirstEncounter_Defender",
         "Data/Species/FirstEncounter_Forager",
-        "Data/Species/FirstEncounter_Predator"
+        "Data/Species/FirstEncounter_Predator",
+        "Data/Species/HighArmor",
+        "Data/Species/ReflectDamage",
+        "Data/Species/SelfHealer",
+        "Data/Species/StealStrength",
+        "Data/Species/Trio_AllyHealer",
+        "Data/Species/Trio_Attacker",
+        "Data/Species/Trio_Defender"
     ]
 }

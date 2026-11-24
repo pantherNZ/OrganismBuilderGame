@@ -48,6 +48,7 @@ public class SpeciesEditorPanel : MonoBehaviour
 
     // Encounter-style skill preview (no combat actions are executed here)
     VisualElement _playerSkillButtons;
+    VisualElement _playerSkillBar;
     VisualElement _skillTooltipContainer;
     VisualElement _skillTooltip;
     Label _skillTooltipTitle;
@@ -55,6 +56,7 @@ public class SpeciesEditorPanel : MonoBehaviour
     VisualElement _skillTooltipAnchor;
 
     // Stats panel
+    VisualElement _statsPanel;
     Label _mutationPointsValue;
     Label _statSizeTotal;
     Label _statHealthTotal;
@@ -62,6 +64,21 @@ public class SpeciesEditorPanel : MonoBehaviour
     Label _statDefenseTotal;
     Label _statForageTotal;
     Button _beginButton;
+
+    enum TutorialStep
+    {
+        None,
+        StartingPart,
+        Stats,
+        Actions,
+        EnterWorld,
+    }
+
+    TutorialStep _tutorialStep;
+    bool _tutorialStatHovered;
+    VisualElement _tutorialTarget;
+    VisualElement _tutorialCallout;
+    Label _tutorialCalloutText;
 
     // Selection state
     Part _selectedPart;
@@ -117,6 +134,8 @@ public class SpeciesEditorPanel : MonoBehaviour
         _root.RegisterCallback<PointerCancelEvent>(OnPartDragCancel);
         _root.UnregisterCallback<GeometryChangedEvent>(OnDetailLayoutChanged);
         _root.RegisterCallback<GeometryChangedEvent>(OnDetailLayoutChanged);
+        _root.UnregisterCallback<GeometryChangedEvent>(OnTutorialLayoutChanged);
+        _root.RegisterCallback<GeometryChangedEvent>(OnTutorialLayoutChanged);
         _detailPanel.UnregisterCallback<GeometryChangedEvent>(OnDetailLayoutChanged);
         _detailPanel.RegisterCallback<GeometryChangedEvent>(OnDetailLayoutChanged);
         _playerPortrait?.UnregisterCallback<GeometryChangedEvent>(OnDetailLayoutChanged);
@@ -137,11 +156,13 @@ public class SpeciesEditorPanel : MonoBehaviour
         _root.UnregisterCallback<PointerUpEvent>(OnPartDragEnd);
         _root.UnregisterCallback<PointerCancelEvent>(OnPartDragCancel);
         _root.UnregisterCallback<GeometryChangedEvent>(OnDetailLayoutChanged);
+        _root.UnregisterCallback<GeometryChangedEvent>(OnTutorialLayoutChanged);
         _detailPanel?.UnregisterCallback<GeometryChangedEvent>(OnDetailLayoutChanged);
         _playerPortrait?.UnregisterCallback<GeometryChangedEvent>(OnDetailLayoutChanged);
         _partLayer?.UnregisterCallback<GeometryChangedEvent>(OnPartLayerGeometryChanged);
         HideDetailPopup();
-        CancelPartDrag();
+        StopTutorial();
+        CancelPartDrag(false);
     }
 
     // ── Public API ────────────────────────────────────────────
@@ -175,10 +196,21 @@ public class SpeciesEditorPanel : MonoBehaviour
         Refresh();
     }
 
+    public void StartFirstPartTutorial()
+    {
+        if (_root == null || _libraryPanel == null)
+        {
+            return;
+        }
+
+        SetTutorialStep(TutorialStep.StartingPart);
+    }
+
     public void Hide()
     {
         HideDetailPopup();
         HideSkillTooltip();
+        StopTutorial();
         _hoveredPart = null;
         _hoveredPartElement = null;
         if (_root != null)
@@ -223,6 +255,7 @@ public class SpeciesEditorPanel : MonoBehaviour
         _detailStats = _root.Q("detail-stats");
 
         _playerSkillButtons = _root.Q("player-skill-buttons");
+        _playerSkillBar = _root.Q("player-skill-bar");
         InitializeSkillTooltip();
         var battleStyles = Resources.Load<StyleSheet>("UI/BattlePanel");
         if (battleStyles != null && !_playerSkillButtons.styleSheets.Contains(battleStyles))
@@ -232,6 +265,7 @@ public class SpeciesEditorPanel : MonoBehaviour
         }
 
         // Stats panel
+        _statsPanel = _root.Q("stats-panel");
         _mutationPointsValue = _root.Q<Label>("mutation-points-value");
         _statSizeTotal = _root.Q<Label>("stat-size-total");
         _statHealthTotal = _root.Q<Label>("stat-health-total");
@@ -239,6 +273,216 @@ public class SpeciesEditorPanel : MonoBehaviour
         _statDefenseTotal = _root.Q<Label>("stat-defense-total");
         _statForageTotal = _root.Q<Label>("stat-forage-total");
         _beginButton = _root.Q<Button>("begin-button");
+
+        BindStatTooltip("stat-row-size", "Affects your organism's size and how it compares with other organisms.");
+        BindStatTooltip("stat-row-health", "The amount of damage your organism can take before it is defeated.");
+        BindStatTooltip("stat-row-attack", "The damage dealt by attack actions.");
+        BindStatTooltip("stat-row-defense", "The defensive value used by your organism's defensive actions.");
+        BindStatTooltip("stat-row-forage", "The amount of strength gained when using a forage action.");
+        BuildTutorialCallout();
+    }
+
+    void BindStatTooltip(string rowName, string tooltip)
+    {
+        var row = _root.Q<VisualElement>(rowName);
+        if (row == null)
+        {
+            return;
+        }
+
+        row.tooltip = tooltip;
+        row.UnregisterCallback<PointerEnterEvent>(OnStatPointerEnter);
+        row.UnregisterCallback<PointerLeaveEvent>(OnStatPointerLeave);
+        row.RegisterCallback<PointerEnterEvent>(OnStatPointerEnter);
+        row.RegisterCallback<PointerLeaveEvent>(OnStatPointerLeave);
+    }
+
+    void BuildTutorialCallout()
+    {
+        if (_tutorialCallout != null || _root == null)
+        {
+            return;
+        }
+
+        _tutorialCallout = new VisualElement { name = "sep-tutorial-callout" };
+        _tutorialCallout.AddToClassList("sep-tutorial-callout");
+        _tutorialCallout.pickingMode = PickingMode.Ignore;
+
+        _tutorialCalloutText = new Label { name = "sep-tutorial-callout-text" };
+        _tutorialCalloutText.AddToClassList("sep-tutorial-callout__text");
+        _tutorialCalloutText.pickingMode = PickingMode.Ignore;
+        _tutorialCallout.Add(_tutorialCalloutText);
+
+        _root.Add(_tutorialCallout);
+        _tutorialCallout.style.display = DisplayStyle.None;
+    }
+
+    void SetTutorialStep(TutorialStep step)
+    {
+        if (_tutorialTarget != null)
+        {
+            _tutorialTarget.RemoveFromClassList("sep-tutorial-highlight");
+        }
+
+        _speciesRadius?.RemoveFromClassList("sep-species-radius--tutorial");
+        _tutorialStep = step;
+        _tutorialStatHovered = false;
+        _tutorialTarget = step switch
+        {
+            TutorialStep.StartingPart => _libraryPanel,
+            TutorialStep.Stats => _statsPanel,
+            TutorialStep.Actions => _playerSkillBar,
+            TutorialStep.EnterWorld => _beginButton,
+            _ => null,
+        };
+
+        if (_tutorialTarget != null)
+        {
+            _tutorialTarget.AddToClassList("sep-tutorial-highlight");
+        }
+
+        bool highlightOrganism = step == TutorialStep.StartingPart;
+        _speciesRadius?.EnableInClassList("sep-species-radius--tutorial", highlightOrganism);
+        if (_speciesRadius != null && highlightOrganism)
+        {
+            _speciesRadius.style.display = DisplayStyle.Flex;
+        }
+        else if (_speciesRadius != null && !_isDraggingPart)
+        {
+            _speciesRadius.style.display = DisplayStyle.None;
+        }
+
+        if (step == TutorialStep.None)
+        {
+            if (_tutorialCallout != null)
+            {
+                _tutorialCallout.style.display = DisplayStyle.None;
+            }
+
+            return;
+        }
+
+        if (_tutorialCallout == null)
+        {
+            BuildTutorialCallout();
+        }
+
+        _tutorialCalloutText.text = step switch
+        {
+            TutorialStep.StartingPart => "Drag and drop your starting trait onto your organism to add it",
+            TutorialStep.Stats => "These are your organisms base stats, they are affected by different traits and they drive the strength of different actions. Hover any stat to learn more",
+            TutorialStep.Actions => "These are your actions available during fights, they are affected by your organism's stats and new actions are granted through different traits",
+            TutorialStep.EnterWorld => "let's go to the world to begin your first fight",
+            _ => string.Empty,
+        };
+        _tutorialCallout.style.display = DisplayStyle.Flex;
+        _tutorialCallout.BringToFront();
+        ScheduleTutorialCalloutPosition();
+    }
+
+    void StopTutorial()
+    {
+        SetTutorialStep(TutorialStep.None);
+    }
+
+    void OnStatPointerEnter(PointerEnterEvent _)
+    {
+        if (_tutorialStep == TutorialStep.Stats)
+        {
+            _tutorialStatHovered = true;
+        }
+    }
+
+    void OnStatPointerLeave(PointerLeaveEvent _)
+    {
+        if (_tutorialStep == TutorialStep.Stats && _tutorialStatHovered)
+        {
+            SetTutorialStep(TutorialStep.Actions);
+        }
+    }
+
+    void OnSkillActionHovered()
+    {
+        if (_tutorialStep != TutorialStep.Actions)
+        {
+            return;
+        }
+
+        HideSkillTooltip();
+        SetTutorialStep(TutorialStep.EnterWorld);
+    }
+
+    void OnTutorialLayoutChanged(GeometryChangedEvent _)
+    {
+        ScheduleTutorialCalloutPosition();
+    }
+
+    void ScheduleTutorialCalloutPosition()
+    {
+        if (_tutorialStep == TutorialStep.None || _root == null)
+        {
+            return;
+        }
+
+        _root.schedule.Execute(PositionTutorialCallout);
+    }
+
+    void PositionTutorialCallout()
+    {
+        if (_tutorialTarget == null || _tutorialCallout == null
+            || _tutorialCallout.style.display == DisplayStyle.None)
+        {
+            return;
+        }
+
+        Rect bounds = _tutorialTarget.worldBound;
+        Vector2 topLeft = _root.WorldToLocal(bounds.position);
+        Vector2 bottomRight = _root.WorldToLocal(new Vector2(bounds.xMax, bounds.yMax));
+        Rect targetBounds = Rect.MinMaxRect(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y);
+        float calloutWidth = Mathf.Max(1f, _tutorialCallout.resolvedStyle.width);
+        float calloutHeight = Mathf.Max(1f, _tutorialCallout.resolvedStyle.height);
+        float rootWidth = Mathf.Max(1f, _root.resolvedStyle.width);
+        float rootHeight = Mathf.Max(1f, _root.resolvedStyle.height);
+        const float gap = 14f;
+        const float edgePadding = 8f;
+
+        float left;
+        float top;
+        switch (_tutorialStep)
+        {
+            case TutorialStep.StartingPart:
+            case TutorialStep.EnterWorld:
+                left = targetBounds.xMin - calloutWidth - gap;
+                top = targetBounds.center.y - calloutHeight * 0.5f;
+                if (left < edgePadding)
+                {
+                    left = targetBounds.xMax + gap;
+                }
+                break;
+            case TutorialStep.Stats:
+                left = targetBounds.xMin - calloutWidth - gap;
+                top = targetBounds.center.y - calloutHeight * 0.5f;
+                if (left < edgePadding)
+                {
+                    left = targetBounds.xMax + gap;
+                }
+                break;
+            case TutorialStep.Actions:
+                left = targetBounds.center.x - calloutWidth * 0.5f;
+                top = targetBounds.yMin - calloutHeight - gap;
+                if (top < edgePadding)
+                {
+                    top = targetBounds.yMax + gap;
+                }
+                break;
+            default:
+                return;
+        }
+
+        left = Mathf.Clamp(left, edgePadding, Mathf.Max(edgePadding, rootWidth - calloutWidth - edgePadding));
+        top = Mathf.Clamp(top, edgePadding, Mathf.Max(edgePadding, rootHeight - calloutHeight - edgePadding));
+        _tutorialCallout.style.left = left;
+        _tutorialCallout.style.top = top;
     }
 
     void RefreshPlayerPortrait()
@@ -561,6 +805,7 @@ public class SpeciesEditorPanel : MonoBehaviour
             // Preserve encounter visuals/tooltips without allowing combat from the editor.
             button.focusable = false;
             button.RegisterCallback<PointerEnterEvent>(_ => ShowSkillTooltip(button));
+            button.RegisterCallback<PointerEnterEvent>(_ => OnSkillActionHovered());
             button.RegisterCallback<PointerLeaveEvent>(_ => HideSkillTooltip(button));
             _playerSkillButtons.Add(button);
         }
@@ -1007,6 +1252,8 @@ public class SpeciesEditorPanel : MonoBehaviour
     void ApplyPartDrop(Vector2 worldPosition)
     {
         bool changed = false;
+        bool placedStartingTrait = _tutorialStep == TutorialStep.StartingPart
+            && _dragSource == DragSource.Library;
         bool overLibrary = _libraryPanel?.worldBound.Contains(worldPosition) == true;
         if (_dragSource == DragSource.Library
             && TryGetPlacementPosition(worldPosition, out Vector2 position))
@@ -1033,9 +1280,13 @@ public class SpeciesEditorPanel : MonoBehaviour
         _hoveredPartElement = null;
         saveDirty = true;
         Refresh();
+        if (placedStartingTrait)
+        {
+            SetTutorialStep(TutorialStep.Stats);
+        }
     }
 
-    void FinishPartDrag()
+    void FinishPartDrag(bool playAudio = true)
     {
         int pointerId = _dragPointerId;
         bool releasePointer = _root != null && pointerId >= 0 && _root.HasPointerCapture(pointerId);
@@ -1045,7 +1296,11 @@ public class SpeciesEditorPanel : MonoBehaviour
             _root.ReleasePointer(pointerId);
 
         if (_speciesRadius != null)
-            _speciesRadius.style.display = DisplayStyle.None;
+        {
+            _speciesRadius.style.display = _tutorialStep == TutorialStep.StartingPart
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
+        }
         if (GameState?.PlayerSpecies != null)
         {
             RefreshConnectionLines(GameState.PlayerSpecies.ConnectedParts, GameState.PlayerSpecies.Parts);
@@ -1056,11 +1311,14 @@ public class SpeciesEditorPanel : MonoBehaviour
         _placementPreview = null;
         _dragSourceElement = null;
         _draggedPart = null;
+
+        if (playAudio)
+            Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
-    void CancelPartDrag()
+    void CancelPartDrag(bool playAudio = true)
     {
-        FinishPartDrag();
+        FinishPartDrag(playAudio);
         _dragMoved = false;
         _suppressNextClick = false;
     }
@@ -1106,6 +1364,8 @@ public class SpeciesEditorPanel : MonoBehaviour
         _selectedPart = _selectedPart == part ? null : part;
         UpdatePartSelectionVisuals();
         RefreshDetailPane(GetActiveDetailPart());
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
     void OnEquippedPartHoverEnter(Part part, VisualElement element)
@@ -1143,7 +1403,12 @@ public class SpeciesEditorPanel : MonoBehaviour
     void OnBegin()
     {
         if (!HasAssignedParts())
+        {
+            //Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPressInvalid);
             return;
+        }
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
 
         OnSave();
         if (ScreenManager.Instance != null)

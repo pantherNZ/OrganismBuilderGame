@@ -10,19 +10,28 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a426ee91c1dd2de4fb55d029743164b5, type: 3}
-  m_Name: Temp
+  m_Name: BlockGained
   m_EditorClassIdentifier: Assembly-CSharp::Schema.Audio.AudioDataSchema
-  _id: Temp
+  _id: BlockGained
   _category: Audio
   hash:
-    v: 695841759
+    v: 1574312513
     hasValue: 1
   _triggerHashRecalculate: 0
   path: 
   automaticChainTo: {fileID: 0}
   automaticChainToDelaySec: 0
   startDelaySec: 0
-  entries: []
+  entries:
+  - clip: {fileID: 8300000, guid: f273d53b9d810194d9b7c146855971cf, type: 3}
+    pitchRange:
+      v:
+        First: 0
+        Second: 0
+      hasValue: 0
+    volumeOverride:
+      v: 0
+      hasValue: 0
   playMethod: 1
   maxPerSecond:
     v: 0

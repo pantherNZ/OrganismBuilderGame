@@ -22,7 +22,7 @@ MonoBehaviour:
     - 0.49
   enableLogging: 1
   enableEventsLogging: 1
-  enableSaving: 1
+  enableSaving: 0
   enableCheatParts: 0
   RootSavePath: SaveGames
   CheatParts: []

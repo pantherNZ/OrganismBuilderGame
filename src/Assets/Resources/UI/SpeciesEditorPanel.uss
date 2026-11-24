@@ -610,3 +610,31 @@
     -unity-font-style: bold;
     margin-left: 4px;
 }
+
+.sep-tutorial-highlight {
+    border-color: rgb(100, 245, 180);
+    background-color: rgba(28, 72, 72, 0.96);
+}
+
+.sep-species-radius--tutorial {
+    border-width: 3px;
+    border-color: rgb(100, 245, 180);
+    background-color: rgba(70, 235, 150, 0.14);
+}
+
+.sep-tutorial-callout {
+    position: absolute;
+    width: 340px;
+    padding: 14px 16px;
+    border-width: 2px;
+    border-color: rgb(90, 205, 230);
+    border-radius: 8px;
+    background-color: rgba(7, 24, 40, 0.98);
+}
+
+.sep-tutorial-callout__text {
+    color: rgb(220, 245, 255);
+    font-size: 14px;
+    -unity-font-style: bold;
+    white-space: normal;
+}

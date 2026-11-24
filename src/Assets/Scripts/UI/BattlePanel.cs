@@ -83,10 +83,7 @@ public class BattlePanel : MonoBehaviour
     readonly Dictionary<Species, Label> _speciesChipHpLabels = new();
     readonly Dictionary<Species, Label> _speciesChipSizeLabels = new();
     ActionManager _actionManager;
-    Species _enemyIntentSpecies;
-    SpeciesActionType? _enemyIntentAction;
-    Species _enemyIntentTarget;
-    Part _enemyIntentPart;
+    readonly Dictionary<Species, SpeciesAction> _enemyIntents = new();
     bool _stepControlsEnabled = true;
     Species _targetingActor;
     Species _targetingTarget;
@@ -102,11 +99,13 @@ public class BattlePanel : MonoBehaviour
     Species _pendingActionActor;
     Part _pendingActionSourcePart;
     SpeciesActionType _pendingActionType;
-    readonly HashSet<Species> _damageEventSpecies = new();
+    readonly HashSet<Species> _combatEventSpecies = new();
 
     [Header("Damage Numbers Pro")]
     [SerializeField] DamageNumber _damageNumberPrefab;
-    [SerializeField] Vector2 _damagePopupScreenJitter = new(18f, 10f);
+    [SerializeField] DamageNumber _blockNumberPrefab;
+    [SerializeField] DamageNumber _healNumberPrefab;
+    [SerializeField] DamageNumber _blockBreakNumberPrefab;
 
     [Header("Battle Fish Visuals")]
     [SerializeField] Vector2 _speciesVisualBaseSize = new(112f, 76f);
@@ -303,15 +302,12 @@ public class BattlePanel : MonoBehaviour
     public void Show(BattleData data)
     {
         if (data == null) throw new ArgumentNullException(nameof(data));
-        ClearDamageEventSubscriptions();
+        ClearCombatEventSubscriptions();
         _data = data;
         _actionManager = new ActionManager(DefaultMaxActions);
         _selectedPlayerSpecies = null;
         _selectablePlayerSpecies.Clear();
-        _enemyIntentSpecies = null;
-        _enemyIntentAction = null;
-        _enemyIntentTarget = null;
-        _enemyIntentPart = null;
+        _enemyIntents.Clear();
         _stepControlsEnabled = true;
         CancelActionGesture();
         HideActionTooltip();
@@ -320,7 +316,7 @@ public class BattlePanel : MonoBehaviour
         ClearSpeciesVisuals();
         BuildSpeciesStrips(data);
         BuildSpeciesVisuals(data);
-        SubscribeToDamageEvents();
+        SubscribeToCombatEvents();
         SetRoundAndTurn(1, true);
         SetSelectableSpecies(data.PlayerGroup);
         ClearCombatLog();
@@ -335,7 +331,7 @@ public class BattlePanel : MonoBehaviour
     {
         CancelActionGesture();
         HideActionTooltip();
-        ClearDamageEventSubscriptions();
+        ClearCombatEventSubscriptions();
         if (_damageNumberCanvasComponent != null)
         {
             _damageNumberCanvasComponent.enabled = false;
@@ -347,7 +343,7 @@ public class BattlePanel : MonoBehaviour
     {
         CancelActionGesture();
         HideActionTooltip();
-        ClearDamageEventSubscriptions();
+        ClearCombatEventSubscriptions();
         if (_damageNumberCanvasComponent != null)
         {
             _damageNumberCanvasComponent.enabled = false;
@@ -366,24 +362,31 @@ public class BattlePanel : MonoBehaviour
         _roundLabel.text = $"TURN {round} - {(isPlayerTurn ? "PLAYER TURN" : "ENEMY TURN")}";
     }
 
-    public void SetEnemyIntent(
-        Species species,
-        SpeciesActionType? action,
-        Species target = null,
-        Part sourcePart = null)
+    public void SetEnemyIntents(IEnumerable<SpeciesAction> actions)
     {
-        _enemyIntentSpecies = species;
-        _enemyIntentAction = action;
-        _enemyIntentTarget = target;
-        _enemyIntentPart = sourcePart;
+        _enemyIntents.Clear();
+        if (actions != null)
+        {
+            foreach (SpeciesAction action in actions)
+            {
+                if (action.Actor != null && action.Actor.IsAlive)
+                {
+                    _enemyIntents[action.Actor] = action;
+                }
+            }
+        }
 
         foreach (var kv in _healthBars)
         {
-            bool isIntentSpecies = kv.Key == _enemyIntentSpecies;
-            kv.Value.SetIntentAction(
-                isIntentSpecies ? _enemyIntentAction : null,
-                isIntentSpecies ? _enemyIntentTarget : null,
-                isIntentSpecies ? _enemyIntentPart : null);
+            if (_enemyIntents.TryGetValue(kv.Key, out SpeciesAction intent))
+            {
+                Species target = intent.Targets?.FirstOrDefault(candidate => candidate != null && candidate.IsAlive);
+                kv.Value.SetIntentAction(intent.Type, target, intent.SourcePart);
+            }
+            else
+            {
+                kv.Value.SetIntentAction(null, null, null);
+            }
         }
     }
 
@@ -785,10 +788,11 @@ public class BattlePanel : MonoBehaviour
     {
         foreach (var indicator in _blockIndicators)
         {
-            indicator.Value.style.display = DisplayStyle.Flex;
+            int block = indicator.Key.Block;
+            indicator.Value.style.display = block > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             if (_blockIndicatorCounts.TryGetValue(indicator.Key, out var count))
             {
-                count.text = indicator.Key.Block.ToString();
+                count.text = block.ToString();
             }
         }
     }
@@ -871,8 +875,11 @@ public class BattlePanel : MonoBehaviour
         bar.SetActionControlsVisible(!isEnemySpecies && species == _selectedPlayerSpecies);
         bar.SetIntentVisible(isEnemySpecies);
         bar.SetEnergyVisible(!isEnemySpecies);
-        if (isEnemySpecies && species == _enemyIntentSpecies)
-            bar.SetIntentAction(_enemyIntentAction, _enemyIntentTarget, _enemyIntentPart);
+        if (isEnemySpecies && _enemyIntents.TryGetValue(species, out SpeciesAction intent))
+        {
+            Species target = intent.Targets?.FirstOrDefault(candidate => candidate != null && candidate.IsAlive);
+            bar.SetIntentAction(intent.Type, target, intent.SourcePart);
+        }
 
         _healthBarLayer.Add(bar);
         _healthBars[species] = bar;
@@ -928,28 +935,84 @@ public class BattlePanel : MonoBehaviour
         if (targetVisual == null)
             return;
 
-        var bounds = targetVisual.worldBound;
-        Vector2 panelPosition = new(bounds.center.x, bounds.yMin);
-        Vector2 screenPosition = PanelPositionToScreen(panelPosition);
-        screenPosition.x += UnityEngine.Random.Range(-_damagePopupScreenJitter.x, _damagePopupScreenJitter.x);
-        screenPosition.y += UnityEngine.Random.Range(-_damagePopupScreenJitter.y, _damagePopupScreenJitter.y);
+        ShowNumber(targetVisual, _damageNumberPrefab, damage, new Vector2(8f, 8f));
+    }
 
-        if (_damageNumberCanvas == null)
+    void ShowBlockNumber(VisualElement indicator, int blockGained)
+    {
+        ShowNumber(indicator, _blockNumberPrefab, blockGained);
+    }
+
+    void ShowBlockBreakNumber(VisualElement indicator, int blockGained)
+    {
+        ShowNumber(indicator, _blockBreakNumberPrefab, blockGained);
+    }
+
+    void OnSpeciesHeal(Species target, int healAmount)
+    {
+        VisualElement targetVisual = null;
+        if (_speciesVisuals.TryGetValue(target, out var speciesVisual))
+            targetVisual = speciesVisual;
+        else if (_speciesChips.TryGetValue(target, out var chip))
+            targetVisual = chip;
+        else if (_healthBars.TryGetValue(target, out var bar))
+            targetVisual = bar;
+
+        if (targetVisual == null)
+            return;
+
+        ShowNumber(targetVisual, _healNumberPrefab, healAmount);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.Heal);
+    }
+
+    void OnSpeciesDamageBlocked(Species target, int blockLost, bool blockFullyConsumed)
+    {
+        if (!_blockIndicators.TryGetValue(target, out var indicator))
         {
             return;
         }
 
+        ShowBlockBreakNumber(indicator, blockLost);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(blockFullyConsumed ? Schema.AudioType.BlockBroken : Schema.AudioType.BlockDamaged);
+    }
+
+    void ShowNumber(VisualElement indicator, DamageNumber prefab, int number, Vector2? jitter = null)
+    {
+        if (prefab == null || indicator == null || number == 0
+            || _root?.panel == null || _root.style.display == DisplayStyle.None
+            || _damageNumberCanvas == null)
+        {
+            return;
+        }
+
+        Rect bounds = indicator.worldBound;
+        if (bounds.width <= 0f || bounds.height <= 0f)
+        {
+            return;
+        }
+
+        Vector2 panelPosition = new(bounds.center.x, bounds.yMin - 8f);
+        Vector2 screenPosition = PanelPositionToScreen(panelPosition);
+        if (jitter.HasValue)
+        {
+            screenPosition.x += UnityEngine.Random.Range(-jitter.Value.x, jitter.Value.x);
+            screenPosition.y += UnityEngine.Random.Range(-jitter.Value.y, jitter.Value.y);
+        }
+
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 _damageNumberCanvas,
-            screenPosition,
+                screenPosition,
                 null,
                 out var anchoredPosition))
         {
             return;
         }
 
-        _damageNumberPrefab.SpawnGUI(_damageNumberCanvas, anchoredPosition, damage);
+        prefab.SpawnGUI(_damageNumberCanvas, anchoredPosition, number);
     }
+
 
     Vector2 PanelPositionToScreen(Vector2 panelPosition)
     {
@@ -964,7 +1027,7 @@ public class BattlePanel : MonoBehaviour
         return new Vector2(normalizedX * Screen.width, (1f - normalizedY) * Screen.height);
     }
 
-    void SubscribeToDamageEvents()
+    void SubscribeToCombatEvents()
     {
         foreach (var species in _speciesVisuals.Keys)
         {
@@ -973,27 +1036,48 @@ public class BattlePanel : MonoBehaviour
                 continue;
             }
 
-            species.DamageTaken += OnSpeciesDamageTaken;
-            _damageEventSpecies.Add(species);
+            species.DamageTakenEvent += OnSpeciesDamageTaken;
+            species.BlockAddedEvent += OnSpeciesBlockAdded;
+            species.HealEvent += OnSpeciesHeal;
+            species.DamageBlockedEvent += OnSpeciesDamageBlocked;
+            _combatEventSpecies.Add(species);
         }
     }
 
-    void ClearDamageEventSubscriptions()
+    void ClearCombatEventSubscriptions()
     {
-        foreach (var species in _damageEventSpecies)
+        foreach (var species in _combatEventSpecies)
         {
             if (species != null)
             {
-                species.DamageTaken -= OnSpeciesDamageTaken;
+                species.DamageTakenEvent -= OnSpeciesDamageTaken;
+                species.BlockAddedEvent -= OnSpeciesBlockAdded;
+                species.HealEvent -= OnSpeciesHeal;
+                species.DamageBlockedEvent -= OnSpeciesDamageBlocked;
             }
         }
 
-        _damageEventSpecies.Clear();
+        _combatEventSpecies.Clear();
     }
 
     void OnSpeciesDamageTaken(Species species, int damage)
     {
         ShowDamageNumber(species, damage);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.TakeDamage);
+    }
+
+    void OnSpeciesBlockAdded(Species species, int blockGained)
+    {
+        if (!_blockIndicators.TryGetValue(species, out var indicator))
+        {
+            return;
+        }
+
+        RefreshDefenseIndicators();
+        _root.schedule.Execute(() => ShowBlockNumber(indicator, blockGained));
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.BlockGained);
     }
 
     void ClearHealthBars()
@@ -1098,6 +1182,8 @@ public class BattlePanel : MonoBehaviour
         };
 
         OnBeginClicked?.Invoke(request);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
     void HandleSpeciesActionSelected(
@@ -1116,7 +1202,10 @@ public class BattlePanel : MonoBehaviour
 
         var actionType = sourcePart == null ? SpeciesActionType.Attack : sourcePart.ActionType;
         if (!species.CanUseAction(sourcePart, actionType))
+        {
+            Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPressInvalid);
             return;
+        }
 
         CancelActionGesture();
         HideActionTooltip();
@@ -1135,6 +1224,8 @@ public class BattlePanel : MonoBehaviour
         }
 
         BeginTargetSelection(species, sourcePart, actionType, actionButton, pointerPosition);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
     void SelectPlayerSpecies(Species species)
@@ -1261,6 +1352,7 @@ public class BattlePanel : MonoBehaviour
             || _data?.IsValidActionTarget(actor, actionType, target) != true)
         {
             RefreshActionChoiceVisuals();
+            Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPressInvalid);
             return;
         }
 
@@ -1273,6 +1365,8 @@ public class BattlePanel : MonoBehaviour
         });
         RefreshActionChoiceVisuals();
         EmitStepRequest();
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.PerformAction);
     }
 
     void HandleActionPointerCancelled(Button actionButton, int pointerId)

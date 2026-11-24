@@ -119,9 +119,9 @@ public class WorldMapPanel : MonoBehaviour
         _travelBtn = _root.Q<Button>("wmp-travel-btn");
         _openSpeciesBtn = _root.Q<Button>("wmp-open-species-btn");
 
-        _travelBtn.clicked += OnTravelClicked;
         if (_openSpeciesBtn != null)
-            _openSpeciesBtn.clicked += OnOpenSpeciesEditorClicked;
+            _travelBtn.clicked += OnTravelClicked;
+        _openSpeciesBtn.clicked += OnOpenSpeciesEditorClicked;
 
         ShowEmpty();
         Hide();
@@ -455,6 +455,8 @@ public class WorldMapPanel : MonoBehaviour
             return;
         }
 
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
+
         // Deselect previous.
         if (_selectedNode != null && _nodeElements.TryGetValue(_selectedNode.Position, out var prev))
             prev.RemoveFromClassList("wmp-node--selected");
@@ -577,10 +579,14 @@ public class WorldMapPanel : MonoBehaviour
             return;
 
         OnTravelRequested?.Invoke(_selectedNode);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
     void OnOpenSpeciesEditorClicked()
     {
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
+
         if (ScreenManager.Instance != null)
             ScreenManager.Instance.ShowSpeciesEditor();
         else
@@ -589,21 +595,33 @@ public class WorldMapPanel : MonoBehaviour
 
     void DrawHoverLine(MeshGenerationContext ctx)
     {
-        WorldMapNode target = _hoveredNode ?? _selectedNode;
-        if (target == null || !target.IsAccessible || _mapData?.PlayerNode == null)
+        if (_mapData?.PlayerNode == null)
         {
             return;
         }
 
-        if (target == _mapData.PlayerNode) return;
-
         var painter = ctx.painter2D;
         Vector2 from = CanvasPosCenter(_mapData.PlayerNode);
-        Vector2 to = CanvasPosCenter(target);
         float pulse = (Mathf.Sin(Time.unscaledTime * 5f) + 1f) * 0.5f;
 
         painter.strokeColor = new Color(0.50f, 0.82f, 0.97f, Mathf.Lerp(0.55f, 0.95f, pulse));
         painter.lineWidth = Mathf.Lerp(2.5f, 4f, pulse);
+
+        if (_selectedNode != null && _selectedNode.IsAccessible && _selectedNode != _mapData.PlayerNode)
+        {
+            DrawPathToNode(painter, from, _selectedNode);
+        }
+
+        if (_hoveredNode != null && _hoveredNode != _selectedNode &&
+            _hoveredNode.IsAccessible && _hoveredNode != _mapData.PlayerNode)
+        {
+            DrawPathToNode(painter, from, _hoveredNode);
+        }
+    }
+
+    void DrawPathToNode(Painter2D painter, Vector2 from, WorldMapNode target)
+    {
+        Vector2 to = CanvasPosCenter(target);
         painter.BeginPath();
         painter.MoveTo(from);
         painter.LineTo(to);

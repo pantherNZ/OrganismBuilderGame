@@ -22,7 +22,7 @@
             <ui:Button name="wmp-open-species-btn" text="SPECIES EDITOR" class="wmp-open-species-btn" />
 
             <!-- Title overlay -->
-            <ui:Label name="wmp-map-title" text="THE OPEN OCEAN" class="wmp-map-title" />
+            <ui:Label name="wmp-map-title" text="THE WORLD" class="wmp-map-title" />
 
             <!-- Drag hint -->
             <ui:Label text="DRAG TO EXPLORE" class="wmp-drag-hint" />

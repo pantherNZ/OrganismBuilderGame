@@ -62,7 +62,7 @@
                     <ui:Label name="stat-forage-total" text="0" class="sep-stat-value"/>
                 </ui:VisualElement>
                 <ui:VisualElement class="sep-section-divider"/>
-                <ui:Button name="begin-button" text="SURFACE MAP" class="sep-save-button" style="height: 55px; font-size: 20px;"/>
+                <ui:Button name="begin-button" text="ENTER WORLD" class="sep-save-button" style="height: 55px; font-size: 20px;"/>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="detail-panel" picking-mode="Ignore" class="sep-panel sep-detail-panel">

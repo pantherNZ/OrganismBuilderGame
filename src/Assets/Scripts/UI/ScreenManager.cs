@@ -44,7 +44,19 @@ public class ScreenManager : MonoBehaviour
     readonly Queue<ActionManager> _enemyActionsThisTurn = new();
     readonly HashSet<Part> _enemyFreeActionsUsed = new();
     readonly HashSet<Species> _enemyActorsActedThisTurn = new();
-    readonly Dictionary<Species, Queue<SpeciesActionType>> _enemySequenceActionsThisTurn = new();
+    readonly Dictionary<Species, Queue<EnemySequenceAction>> _enemySequenceActionsThisTurn = new();
+
+    readonly struct EnemySequenceAction
+    {
+        public SpeciesActionType Type { get; }
+        public SpeciesActionTargetOverride TargetOverride { get; }
+
+        public EnemySequenceAction(SpeciesActionType type, SpeciesActionTargetOverride targetOverride)
+        {
+            Type = type;
+            TargetOverride = targetOverride;
+        }
+    }
 
     void Awake()
     {
@@ -332,7 +344,7 @@ public class ScreenManager : MonoBehaviour
                 continue;
             }
 
-            if (!TryChooseEnemyAction(enemy, out var type, out var part))
+            if (!TryChooseEnemyAction(enemy, out var type, out var part, out var target))
             {
                 continue;
             }
@@ -342,7 +354,7 @@ public class ScreenManager : MonoBehaviour
                 Actor = enemy,
                 Type = type,
                 SourcePart = part,
-                Targets = RequiresTarget(type) ? new List<Species> { enemy.PickTarget(_playerBattleGroup.Alive) } : null,
+                Targets = target == null ? null : new List<Species> { target },
             });
             return manager;
         }
@@ -350,22 +362,37 @@ public class ScreenManager : MonoBehaviour
         return manager;
     }
 
-    bool TryChooseEnemyAction(Species enemy, out SpeciesActionType actionType, out Part sourcePart)
+    bool TryChooseEnemyAction(Species enemy, out SpeciesActionType actionType, out Part sourcePart, out Species target)
     {
+        target = null;
+
         if (enemy.HasActionSequence)
         {
-            if (!_enemySequenceActionsThisTurn.TryGetValue(enemy, out Queue<SpeciesActionType> actions))
+            if (!_enemySequenceActionsThisTurn.TryGetValue(enemy, out Queue<EnemySequenceAction> actions))
             {
-                actions = new Queue<SpeciesActionType>(enemy.GetNextActionTurn());
+                SpeciesActionTurn turn = enemy.GetNextActionSequenceTurn();
+                actions = new Queue<EnemySequenceAction>();
+                for (int index = 0; index < turn.Actions.Count; index++)
+                {
+                    actions.Enqueue(new EnemySequenceAction(
+                        turn.Actions[index],
+                        turn.GetTargetOverride(index)));
+                }
+
                 _enemySequenceActionsThisTurn.Add(enemy, actions);
             }
 
             while (actions.Count > 0)
             {
-                actionType = actions.Dequeue();
+                EnemySequenceAction sequenceAction = actions.Dequeue();
+                actionType = sequenceAction.Type;
                 if (TryGetEnemyActionPart(enemy, actionType, out sourcePart))
                 {
-                    return true;
+                    target = ResolveEnemyActionTarget(enemy, actionType, sequenceAction.TargetOverride);
+                    if (!RequiresTarget(actionType) || target != null)
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -382,12 +409,14 @@ public class ScreenManager : MonoBehaviour
             && IsEnemyActionSupported(enemy, candidate.ActionType));
         actionType = sourcePart == null ? SpeciesActionType.Attack : sourcePart.ActionType;
         bool canUseAction = enemy.CanUseAction(sourcePart, actionType);
-        if (canUseAction)
+        target = ResolveEnemyActionTarget(enemy, actionType, SpeciesActionTargetOverride.Default);
+        if (canUseAction && (!RequiresTarget(actionType) || target != null))
         {
             _enemyActorsActedThisTurn.Add(enemy);
+            return true;
         }
 
-        return canUseAction;
+        return false;
     }
 
     bool TryGetEnemyActionPart(Species enemy, SpeciesActionType actionType, out Part sourcePart)
@@ -413,33 +442,91 @@ public class ScreenManager : MonoBehaviour
             SpeciesActionType.Attack => enemy.Attack > 0,
             SpeciesActionType.Forage => enemy.Forage > 0 && enemy.CanForage,
             SpeciesActionType.Defend => enemy.CanDefend,
-            SpeciesActionType.Blind => enemy.ProvidesSpecialAction(actionType),
-            _ => false,
+            _ => enemy.ProvidesSpecialAction(actionType),
         };
+    }
+
+    Species ResolveEnemyActionTarget(
+        Species actor,
+        SpeciesActionType actionType,
+        SpeciesActionTargetOverride targetOverride)
+    {
+        if (!RequiresTarget(actionType))
+        {
+            return null;
+        }
+
+        switch (targetOverride)
+        {
+            case SpeciesActionTargetOverride.Self:
+                return actor;
+            case SpeciesActionTargetOverride.Ally:
+                return PickEnemyAllyTarget(actor, actionType == SpeciesActionType.Heal);
+            case SpeciesActionTargetOverride.Enemy:
+                return actor.PickTarget(_playerBattleGroup?.Alive ?? Enumerable.Empty<Species>());
+            default:
+                if (actionType == SpeciesActionType.Heal)
+                {
+                    return actor;
+                }
+
+                return actor.PickTarget(_playerBattleGroup?.Alive ?? Enumerable.Empty<Species>());
+        }
+    }
+
+    static Species PickEnemyAllyTarget(Species actor, bool mustBeInjured)
+    {
+        IEnumerable<Species> allies = actor?.Group?.Members;
+        if (allies == null)
+        {
+            return null;
+        }
+
+        return allies
+            .Where(ally => ally != null && ally != actor && ally.IsAlive
+                && (!mustBeInjured || ally.CurrentHealth < ally.MaxHealth))
+            .OrderByDescending(ally => ally.MaxHealth - ally.CurrentHealth)
+            .FirstOrDefault();
     }
 
     static bool RequiresTarget(SpeciesActionType type)
     {
-        return type == SpeciesActionType.Attack || type == SpeciesActionType.Blind;
+        return type == SpeciesActionType.Attack
+            || type == SpeciesActionType.Blind
+            || type == SpeciesActionType.Heal;
     }
 
     void UpdateEnemyIntentVisual()
     {
-        if (_enemyActionManager == null || _enemyActionManager.Actions.Count == 0)
+        var intents = new List<SpeciesAction>();
+        var includedActors = new HashSet<Species>();
+
+        AddEnemyIntents(_enemyActionManager, intents, includedActors);
+        foreach (ActionManager actionManager in _enemyActionsThisTurn)
         {
-            BattlePanel?.SetEnemyIntent(null, null);
+            AddEnemyIntents(actionManager, intents, includedActors);
+        }
+
+        BattlePanel?.SetEnemyIntents(intents);
+    }
+
+    static void AddEnemyIntents(
+        ActionManager actionManager,
+        ICollection<SpeciesAction> intents,
+        ISet<Species> includedActors)
+    {
+        if (actionManager == null || actionManager.Actions.Count == 0)
+        {
             return;
         }
 
-        var intent = _enemyActionManager.Actions[0];
-        if (intent.Actor == null || !intent.Actor.IsAlive)
+        SpeciesAction intent = actionManager.Actions[0];
+        if (intent.Actor == null || !intent.Actor.IsAlive || !includedActors.Add(intent.Actor))
         {
-            BattlePanel?.SetEnemyIntent(null, null);
             return;
         }
 
-        var target = intent.Targets?.FirstOrDefault(candidate => candidate != null && candidate.IsAlive);
-        BattlePanel?.SetEnemyIntent(intent.Actor, intent.Type, target, intent.SourcePart);
+        intents.Add(intent);
     }
 
     void HandleBattleStepRequested(BattleStepRequest request)
@@ -700,6 +787,30 @@ public class ScreenManager : MonoBehaviour
         var enemy = queuedAction.Actor;
         if (enemy == null) yield break;
 
+        if (queuedAction.Type == SpeciesActionType.Heal)
+        {
+            var healTarget = queuedAction.Targets?.FirstOrDefault(target => target != null && target.IsAlive);
+            if (healTarget == null)
+            {
+                BattlePanel?.AppendCombatLog($"{enemy.Name} found no valid healing target.");
+                yield break;
+            }
+
+            int healthBefore = healTarget.CurrentHealth;
+            CombatSimulator.ExecuteActions(_enemyBattleGroup, _playerBattleGroup, _enemyActionManager);
+            int healing = Mathf.Max(0, healTarget.CurrentHealth - healthBefore);
+            if (healing > 0)
+            {
+                BattlePanel?.AppendCombatLog($"{enemy.Name} healed {healTarget.Name} for {healing} health.");
+            }
+            else
+            {
+                BattlePanel?.AppendCombatLog($"{enemy.Name} could not heal {healTarget.Name}.");
+            }
+
+            yield break;
+        }
+
         BattleStepAction action = ToBattleStepAction(queuedAction.Type);
 
         BattlePanel?.AppendCombatLog($"Round {_battleRound} | Enemy: {enemy.Name} uses {action}.");
@@ -917,6 +1028,7 @@ public class ScreenManager : MonoBehaviour
         if (CardPickerPanel != null)
             CardPickerPanel.OnPicked -= HandleRewardPicked;
 
+        bool isStartingPartPick = GameState.IsChoosingStartingPart && chosen != null;
         bool returnToBattleResult = _battleRewardSelectionActive;
         _battleRewardSelectionActive = false;
         GameState.SelectReward(chosen);
@@ -935,6 +1047,12 @@ public class ScreenManager : MonoBehaviour
         }
 
         ShowSpeciesEditor();
+        if (isStartingPartPick)
+        {
+            SpeciesEditorPanel?.StartFirstPartTutorial();
+        }
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
     BattleData BuildBattleData(WorldMapNode destination)

@@ -2,17 +2,21 @@
     "Items": [
         "Data/Parts/Archetype_Resonance",
         "Data/Parts/Armor_Piercer",
+        "Data/Parts/Bleeding_Jaws",
         "Data/Parts/Blind_Ink",
+        "Data/Parts/ConnectedAttackBooster",
+        "Data/Parts/DefaultAttack",
+        "Data/Parts/DefaultDefend",
+        "Data/Parts/DefaultForage",
+        "Data/Parts/Defender_Starter",
+        "Data/Parts/Defensive_Growth",
+        "Data/Parts/Forager_Starter",
+        "Data/Parts/Forage_Leech",
+        "Data/Parts/Heal",
         "Data/Parts/Panic_Forager",
-        "Data/Parts/Pressure_Guard",
+        "Data/Parts/Predator_Starter",
         "Data/Parts/Random_Barb",
-        "Data/Parts/Defence/Defender_Starter",
-        "Data/Parts/Defence/Defensive_Growth",
-        "Data/Parts/Forager/Adjacent_Forager",
-        "Data/Parts/Forager/Forager_Starter",
-        "Data/Parts/Forager/Forage_Leech",
-        "Data/Parts/Predator/Adjacent_Strike",
-        "Data/Parts/Predator/Bleeding_Jaws",
-        "Data/Parts/Predator/Predator_Starter"
+        "Data/Parts/Reflect",
+        "Data/Parts/StealStrengthPassive"
     ]
 }

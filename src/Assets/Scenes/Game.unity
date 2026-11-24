@@ -132,6 +132,8 @@ GameObject:
   - component: {fileID: 74201795}
   - component: {fileID: 74201796}
   - component: {fileID: 74201797}
+  - component: {fileID: 74201798}
+  - component: {fileID: 74201799}
   m_Layer: 0
   m_Name: Singletons
   m_TagString: Untagged
@@ -181,9 +183,11 @@ MonoBehaviour:
   SpeciesEditorPanel: {fileID: 134800093}
   WorldMapPanel: {fileID: 1141939338}
   BattlePanel: {fileID: 1761890945}
-  CardPickerPanel: {fileID: 0}
+  CardPickerPanel: {fileID: 1376414239}
   GameEndPanel: {fileID: 2100000004}
   ShopPanel: {fileID: 2000000004}
+  _turnDelaySeconds: 0.35
+  _gameEndDelaySeconds: 0.75
 --- !u!114 &74201796
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -198,7 +202,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Scripts::Runtime.Game.GlobalConstantsHandler
   constructRuntimeConstants: 1
   _constants: {fileID: 11400000, guid: a41086e0df3ceb246b53402289bf7410, type: 2}
-  _uiConstants: {fileID: 11400000, guid: 38ae2b8da628e714ab97c33c94b7f81f, type: 2}
 --- !u!114 &74201797
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -212,6 +215,35 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Scripts::Save.SaveManager
   autoSaveIntervalSeconds: 300
+--- !u!114 &74201798
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 74201792}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c67af2e790377f849b60bdc9083e7a19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Scripts::Runtime.Audio.SfxManager
+  audioSourcePrefab: {fileID: 8219807897507982747, guid: 43e0c25aee0f04a40aca8a0d07b48b60, type: 3}
+  volumeScale: 1
+  volumeScaleUI: 1
+  volumeScaleSFX: 1
+  sfxEnabled: 1
+--- !u!114 &74201799
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 74201792}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 864c3f74775fc394f980b6b412a8b54e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Scripts::Memory.SimplePoolManager
 --- !u!1 &134800090
 GameObject:
   m_ObjectHideFlags: 0
@@ -240,7 +272,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
   m_PanelSettings: {fileID: 11400000, guid: 1cab78d1a17dcac48b4e70b4f273393a, type: 2}
   m_ParentUI: {fileID: 0}
@@ -705,9 +737,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3a858f14c4792d4cb48546308a7aa3f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BattlePanel
-  _damageNumberPrefab: {fileID: 2591646504292624505, guid: fd2888d47b99c024b9c28cd6132a401c, type: 3}
-  _damagePopupScreenJitter: {x: 18, y: 10}
-  _defaultSpeciesSprite: {fileID: 0}
+  _damageNumberPrefab: {fileID: 2591646504292624505, guid: fd60fca09637b0742a6f0958bfe13c20, type: 3}
+  _blockNumberPrefab: {fileID: 2591646504292624505, guid: 0117169e458f47241994eb17e65412bd, type: 3}
+  _healNumberPrefab: {fileID: 2591646504292624505, guid: 81258671b8ebfce46afefed87c599df0, type: 3}
+  _blockBreakNumberPrefab: {fileID: 2591646504292624505, guid: 49950284327474c4e894404f3ea3f4fe, type: 3}
   _speciesVisualBaseSize: {x: 112, y: 76}
   _speciesVisualMinimumSize: 1
   _speciesVisualMaximumSize: 12
@@ -810,6 +843,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2100000003
@@ -822,7 +856,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
   m_PanelSettings: {fileID: 11400000, guid: 1cab78d1a17dcac48b4e70b4f273393a, type: 2}
   m_ParentUI: {fileID: 0}
@@ -845,7 +879,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2fdb605c08414a41be1dceb5eb3fa3e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameEndPanel
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

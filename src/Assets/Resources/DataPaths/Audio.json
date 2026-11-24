@@ -1,5 +1,14 @@
 {
     "Items": [
-        "Data/Audio/Temp"
+        "Data/Audio/BlockBroken",
+        "Data/Audio/BlockDamaged",
+        "Data/Audio/BlockGained",
+        "Data/Audio/ButtonPress",
+        "Data/Audio/ButtonPressInvalid",
+        "Data/Audio/GameLoss",
+        "Data/Audio/Heal",
+        "Data/Audio/PerformAction",
+        "Data/Audio/TakeDamage",
+        "Data/Audio/Victory"
     ]
 }

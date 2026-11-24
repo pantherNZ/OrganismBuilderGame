@@ -62,7 +62,7 @@ namespace Schema
 		Dictionary<int, BaseDataSchema> allDataAssets = new();
 
 
-		readonly List<Audio.AudioDataSchema> audioClips;
+		List<Audio.AudioDataSchema> audioClips;
 		public Dictionary<Audio.AudioDataSchema, List<Audio.AudioDataSchema>> GroupedAudioClips;
 		public ReadOnlyCollection<Audio.AudioDataSchema> AudioClips => audioClips.AsReadOnly();
 
@@ -104,18 +104,6 @@ namespace Schema
 			Debug.LogError($"DataManager failed to find asset by hash: {hash}");
 			return null;
 		}
-
-		// Game strings
-		//public string GetGameString(GameStringType key)
-		//	=> gameStrings.GetGameString(key);
-		//public string GetGameString(StatType stat, bool errorOnFail = true)
-		//	=> gameStrings.GetGameString(stat, errorOnFail);
-		// public string GetGameStringFormatted(GameStringType key, int arg)
-		// 	=> gameStrings.GetGameStringFormatted(key, arg);
-		// public string GetGameStringFormatted(GameStringType key, string arg)
-		// 	=> gameStrings.GetGameStringFormatted(key, arg);
-		// public string GetGameStringFormatted(StatType stat, int arg, bool errorOnFail = true)
-		// 	=> gameStrings.GetGameStringFormatted(stat, arg, errorOnFail);
 
 #if UNITY_EDITOR
 		[MenuItem("Scripts/Regenerate Game Data")]
@@ -236,8 +224,7 @@ namespace Schema
 		{
 			LoadData();
 
-			//GenerateEnumSchema(nameof(AudioClips), typeof(Audio.AudioDataSchema), "AudioType", audioClips.Select(x => x.name), prependFlags: new string[] { "None" });
-			//GenerateGameStringsEnum( "GameStringType", gameStrings.gameStrings[( int )Language.English].strings.Select( x => x.key ) );
+			GenerateEnumSchema(nameof(AudioClips), typeof(Audio.AudioDataSchema), "AudioType", audioClips.Select(x => x.name), prependFlags: new string[] { "None" });
 
 			AssetDatabase.SaveAssets();
 		}
@@ -249,16 +236,13 @@ namespace Schema
 
 			registeredAssets = new(registeredAssets.Where(obj => obj != null).ToHashSet());
 
-			// audioClips = LoadDataOfType<Audio.AudioDataSchema>(DataType.Audio);
+			audioClips = LoadDataOfType<Audio.AudioDataSchema>(DataType.Audio);
 
-			// GroupedAudioClips = audioClips.Where(x => x.groupedWith != null).GroupBy(x => x.groupedWith).ToDictionary(g => g.Key, g => g.ToList());
-			// foreach (var (key, group) in GroupedAudioClips)
-			// {
-			// 	group.Add(key);
-			// }
-
-			//			var gameStringFiles = LoadDataOfType<GameStringsSchema>(DataType.GameStrings);
-			//			gameStrings = new GameStringsManager(gameStringFiles);
+			GroupedAudioClips = audioClips.Where(x => x.groupedWith != null).GroupBy(x => x.groupedWith).ToDictionary(g => g.Key, g => g.ToList());
+			foreach (var (key, group) in GroupedAudioClips)
+			{
+				group.Add(key);
+			}
 
 			encounters = LoadDataOfType<EncounterSchema>(DataType.Encounters);
 			parts = LoadDataOfType<PartSchema>(DataType.Parts);

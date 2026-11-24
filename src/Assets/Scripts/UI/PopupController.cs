@@ -126,7 +126,7 @@ namespace UI
 			root.Remove(selfView);
 
 			if (playAudio)
-				SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPressGenericClose);
+				SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
 
 			callback?.Invoke();
 		}
@@ -182,7 +182,7 @@ namespace UI
 			callback?.Invoke(state);
 
 			if (playAudio)
-				SfxManager.Instance.PlayUI(state == Popup.ReturnState.Yes ? Schema.AudioType.ButtonPressGenericOpen : Schema.AudioType.ButtonPressGenericClose);
+				SfxManager.Instance.PlayUI(state == Popup.ReturnState.Yes ? Schema.AudioType.ButtonPress : Schema.AudioType.ButtonPress);
 		}
 
 		public override void OnExitClicked()

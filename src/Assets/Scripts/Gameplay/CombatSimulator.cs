@@ -131,8 +131,10 @@ public class CombatSimulator
                 continue;
             }
 
-            var targets = action.Targets?.Where(target => target != null
-                && target.IsAlive && opposingGroup.Members.Contains(target)).Distinct().ToList();
+            var targets = action.Targets?.Where(target => target != null && target.IsAlive
+                && (actingGroup.Members.Contains(target) || opposingGroup.Members.Contains(target)))
+                .Distinct()
+                .ToList();
             if (action.Type == SpeciesActionType.Attack || action.Type == SpeciesActionType.Blind)
             {
                 if (targets == null || targets.Count == 0)
@@ -144,6 +146,10 @@ public class CombatSimulator
                 {
                     continue;
                 }
+            }
+            else if (action.Type == SpeciesActionType.Heal && (targets == null || targets.Count == 0))
+            {
+                targets = new List<Species> { actor };
             }
 
             switch (action.Type)
@@ -164,7 +170,8 @@ public class CombatSimulator
                     break;
                 case SpeciesActionType.Blind:
                 case SpeciesActionType.Heal:
-                    if (actor.ProvidesSpecialAction(action.Type)
+                    if (targets != null && targets.Count > 0
+                        && actor.ProvidesSpecialAction(action.Type)
                         && actor.TrySpendActionResources(sourcePart, action.Type))
                     {
                         actor.SpecialAction(action.Type, targets[0]);

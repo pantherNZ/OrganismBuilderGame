@@ -52,8 +52,16 @@ public class Species
     public int TemporaryMaxHealthModifier;
     public int TemporaryStrengthModifier;
     public int TemporaryBlockModifier; // resets each turn
+    public int CurrentBlock;
+    public int CurrentStrength;
+    public bool PersistTempBlock = false;
 
-    public event Action<Species, int> DamageTaken;
+
+    public event Action<Species, int> DamageTakenEvent;
+    public event Action<Species, int, bool> DamageBlockedEvent;
+    public event Action<Species, int> BlockAddedEvent;
+    public event Action<Species, int> HealEvent;
+
 
     public List<Part> Parts = new List<Part>();
     public Dictionary<Part, HashSet<Part>> ConnectedParts = new();
@@ -82,20 +90,26 @@ public class Species
 
     public IReadOnlyList<SpeciesActionType> GetNextActionTurn()
     {
+        SpeciesActionTurn turn = AdvanceActionSequence();
+        return turn?.Actions ?? (IReadOnlyList<SpeciesActionType>)Array.Empty<SpeciesActionType>();
+    }
+
+    public SpeciesActionTurn GetNextActionSequenceTurn()
+    {
+        return AdvanceActionSequence()?.Clone() ?? new SpeciesActionTurn();
+    }
+
+    SpeciesActionTurn AdvanceActionSequence()
+    {
         if (!HasActionSequence)
         {
-            return Array.Empty<SpeciesActionType>();
+            return null;
         }
 
         _nextActionSequenceIndex %= ActionSequence.Count;
         SpeciesActionTurn turn = ActionSequence[_nextActionSequenceIndex];
         _nextActionSequenceIndex = (_nextActionSequenceIndex + 1) % ActionSequence.Count;
-        if (turn?.Actions == null)
-        {
-            return Array.Empty<SpeciesActionType>();
-        }
-
-        return turn.Actions;
+        return turn;
     }
 
     public void ResetActionSequence()
@@ -112,8 +126,8 @@ public class Species
     public int ActionForage(Part part) => Math.Max(0, BaseForage + Parts.Sum(p => part == p ? p.Forage : p.BaseForage) + TemporaryForageModifier);
     public int MaxHealth => BaseHealth + Parts.Sum(p => p.BaseHealth) + TemporaryMaxHealthModifier;
     public int Size => BaseSize + Parts.Sum(p => p.BaseSize);
-    public int Strength => BaseStrength + Parts.Sum(p => p.BaseStrength) + TemporaryStrengthModifier;
-    public int Block => BaseBlock + Parts.Sum(p => p.BaseBlock) + TemporaryBlockModifier;
+    public int Strength => CurrentStrength + TemporaryStrengthModifier;
+    public int Block => CurrentBlock + TemporaryBlockModifier;
     public bool CanAttack => !Parts.Any(p => !p.CanAttack);
     public bool CanDefend => !Parts.Any(p => !p.CanDefend);
     public bool CanForage => !Parts.Any(p => !p.CanForage);
@@ -222,6 +236,9 @@ public class Species
         ResetActionSequence();
         foreach (var part in Parts)
             part.OnEncounterStart(this, enemy);
+
+        CurrentBlock = BaseBlock + Parts.Sum(p => p.BaseBlock);
+        CurrentStrength = BaseStrength + Parts.Sum(p => p.BaseStrength);
     }
 
     public void OnEncounterFinish()
@@ -324,15 +341,41 @@ public class Species
 
     public void DefendAction(Part sourcePart)
     {
+        int blockBefore = Block;
+
         foreach (var part in Parts)
             part.OnDefendAction(this);
-        TemporaryBlockModifier += ActionDefense(sourcePart);
+
+        if (PersistTempBlock)
+        {
+            CurrentBlock += ActionDefense(sourcePart);
+        }
+        else
+        {
+            TemporaryBlockModifier += ActionDefense(sourcePart);
+        }
+
+        int blockGained = Block - blockBefore;
+        if (blockGained > 0)
+        {
+            BlockAddedEvent?.Invoke(this, blockGained);
+        }
     }
 
     public void SpecialAction(SpeciesActionType action, Species target)
     {
         foreach (var part in Parts)
             part.OnSpecialAction(this, target, action);
+    }
+
+    public void Heal(int amount)
+    {
+        int healAmount = Mathf.Max(0, amount);
+        if (healAmount <= 0)
+            return;
+
+        CurrentHealth = Math.Min(MaxHealth, CurrentHealth + healAmount);
+        HealEvent?.Invoke(this, healAmount);
     }
 
     public bool ProvidesSpecialAction(SpeciesActionType action)
@@ -389,7 +432,9 @@ public class Species
         if (mitigated < 0)
             mitigated = 0;
 
-        TemporaryBlockModifier = Mathf.Max(0, TemporaryBlockModifier - damage);
+        var blockConsumed = Mathf.Min(TemporaryBlockModifier, damage);
+        TemporaryBlockModifier -= blockConsumed;
+        DamageBlockedEvent?.Invoke(this, blockConsumed, TemporaryBlockModifier == 0);
 
         foreach (var part in Parts)
             part.OnBlock(this, attacker, ref mitigated);
@@ -410,7 +455,7 @@ public class Species
         }
 
         CurrentHealth = Math.Max(0, CurrentHealth - adjustedDamage);
-        DamageTaken?.Invoke(this, adjustedDamage);
+        DamageTakenEvent?.Invoke(this, adjustedDamage);
     }
 
     public void AddTemporaryStatModifiers(int attack, int defense, int forage)

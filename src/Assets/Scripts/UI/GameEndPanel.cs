@@ -47,6 +47,8 @@ public class GameEndPanel : MonoBehaviour
         _primaryButton.text = _awaitingRewardConfirmation ? "SELECT TRAIT" : "EXIT TO WORLD";
         _primaryButton.SetEnabled(!_awaitingRewardConfirmation);
         ShowRoot();
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.Victory);
     }
 
     public void ShowVictoryWithLoot(Part loot)
@@ -60,6 +62,8 @@ public class GameEndPanel : MonoBehaviour
         _primaryButton.text = "EXIT TO WORLD";
         _primaryButton.SetEnabled(true);
         ShowRoot();
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.Victory);
     }
 
     public void ShowDefeat()
@@ -73,6 +77,8 @@ public class GameEndPanel : MonoBehaviour
         _primaryButton.text = "EXIT TO WORLD";
         _primaryButton.SetEnabled(true);
         ShowRoot();
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.GameLoss);
     }
 
     public void Hide()
@@ -155,6 +161,8 @@ public class GameEndPanel : MonoBehaviour
         _selectedLootCard.AddToClassList("gep-loot-card--selected");
         _primaryButton.text = "CLAIM REWARD";
         _primaryButton.SetEnabled(true);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
     void ShowRoot()
@@ -164,6 +172,8 @@ public class GameEndPanel : MonoBehaviour
 
     void HandlePrimaryButtonClicked()
     {
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
+
         if (_awaitingRewardConfirmation)
         {
             if (_selectedReward == null)

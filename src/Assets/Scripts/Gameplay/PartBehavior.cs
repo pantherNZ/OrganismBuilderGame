@@ -181,7 +181,7 @@ public class HealActionBehavior : PartBehaviorBase
         if (action != SpeciesActionType.Heal || target == null || !target.IsAlive)
             return;
 
-        target.CurrentHealth = Math.Min(target.MaxHealth, target.CurrentHealth + healAmount);
+        target.Heal(healAmount);
     }
 }
 

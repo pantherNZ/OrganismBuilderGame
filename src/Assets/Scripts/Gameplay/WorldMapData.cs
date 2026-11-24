@@ -175,15 +175,17 @@ public class WorldMapData
             int ringNodeCount = Mathf.Min(ringCapacity, locationCount - locations.Count);
 
             float ringOffset = rng.value * (Mathf.PI * 2.0f);
+            float angleJitterMult = 0.5f;
+            float radiusJitterMult = 0.15f;
 
             for (int i = 0; i < ringNodeCount; i++)
             {
                 float t = i / (float)ringCapacity;
                 float angle = ringOffset + t * (Mathf.PI * 2.0f);
-                float angleJitter = (rng.value - 0.5f) * ((Mathf.PI * 2.0f) / (ringCapacity * 6.0f));
+                float angleJitter = (rng.value - 0.5f) * ((Mathf.PI * 2.0f) / (ringCapacity * 6.0f)) * angleJitterMult;
                 angle += angleJitter;
 
-                float radius = baseRadius + (ringIndex - 1) * ringSpacing + (rng.value - 0.5f) * 0.35f;
+                float radius = baseRadius + (ringIndex - 1) * ringSpacing + (rng.value - 0.5f) * radiusJitterMult;
                 int x = (int)Mathf.Round(Mathf.Cos(angle) * radius);
                 int y = (int)Mathf.Round(Mathf.Sin(angle) * radius);
 

@@ -108,6 +108,8 @@ public class CardPickerPanel : MonoBehaviour
 
         Utility.UI.EnableClass(false, _confirmBtn, "cpp-confirm-btn--hidden");
         _confirmBtn?.SetEnabled(true);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
     void OnConfirmClicked()
@@ -116,6 +118,8 @@ public class CardPickerPanel : MonoBehaviour
             return;
 
         Confirm(_selectedCard.Part);
+
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
     }
 
     void Confirm(Part part)
