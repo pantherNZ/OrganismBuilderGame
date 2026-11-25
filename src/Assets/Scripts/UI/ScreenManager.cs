@@ -97,7 +97,7 @@ public class ScreenManager : MonoBehaviour
         if (GameEndPanel != null)
         {
             GameEndPanel.OnRewardSelected -= HandleRewardPicked;
-            GameEndPanel.OnExitToWorldRequested -= HandleGameEndExitRequested;
+            GameEndPanel.OnExitToEditorRequested -= HandleGameEndExitRequested;
         }
         if (ShopPanel != null)
         {
@@ -215,8 +215,8 @@ public class ScreenManager : MonoBehaviour
         {
             GameEndPanel.OnRewardSelected -= HandleRewardPicked;
             GameEndPanel.OnRewardSelected += HandleRewardPicked;
-            GameEndPanel.OnExitToWorldRequested -= HandleGameEndExitRequested;
-            GameEndPanel.OnExitToWorldRequested += HandleGameEndExitRequested;
+            GameEndPanel.OnExitToEditorRequested -= HandleGameEndExitRequested;
+            GameEndPanel.OnExitToEditorRequested += HandleGameEndExitRequested;
         }
 
         if (ShopPanel != null)
@@ -355,6 +355,9 @@ public class ScreenManager : MonoBehaviour
                 Type = type,
                 SourcePart = part,
                 Targets = target == null ? null : new List<Species> { target },
+                AttackDamageMultiplierRoll = type == SpeciesActionType.Attack
+                    ? enemy.RollAttackDamageMultiplier()
+                    : null,
             });
             return manager;
         }
@@ -993,13 +996,6 @@ public class ScreenManager : MonoBehaviour
     {
         _battleRewardSelectionActive = GameState.PendingRewardChoices != null
             && GameState.PendingRewardChoices.Count > 0;
-
-        if (GameEndPanel == null)
-        {
-            ShowRewardPicker();
-            return;
-        }
-
         HideAllPanels();
         GameEndPanel.ShowVictory(GameState.PendingRewardChoices);
     }
@@ -1007,20 +1003,21 @@ public class ScreenManager : MonoBehaviour
     void ShowGameEndDefeat()
     {
         _battleRewardSelectionActive = false;
-
-        if (GameEndPanel == null)
-        {
-            ShowSpeciesEditor();
-            return;
-        }
-
         HideAllPanels();
         GameEndPanel.ShowDefeat();
     }
 
     void HandleGameEndExitRequested()
     {
-        ShowWorldMap();
+        if (GameState?.IsGameOver == true)
+        {
+            GameState.Restart();
+            ShowSpeciesEditor();
+            ShowRewardPicker(true);
+            return;
+        }
+
+        ShowSpeciesEditor();
     }
 
     void HandleRewardPicked(Part chosen)
@@ -1052,7 +1049,7 @@ public class ScreenManager : MonoBehaviour
             SpeciesEditorPanel?.StartFirstPartTutorial();
         }
 
-        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
+        Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.LootPicked);
     }
 
     BattleData BuildBattleData(WorldMapNode destination)

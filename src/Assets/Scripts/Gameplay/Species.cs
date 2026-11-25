@@ -55,6 +55,8 @@ public class Species
     public int CurrentBlock;
     public int CurrentStrength;
     public bool PersistTempBlock = false;
+    public float AttackDamageMultiplierRange;
+    public float DefendBlockMultiplierRange;
 
 
     public event Action<Species, int> DamageTakenEvent;
@@ -200,7 +202,6 @@ public class Species
     public void Initialize()
     {
         RebuildConnectedParts();
-        CurrentHealth = MaxHealth;
         TemporaryStrengthModifier = 0;
         TemporaryAttackModifier = 0;
         TemporaryDefenseModifier = 0;
@@ -254,6 +255,11 @@ public class Species
 
     public void OnTurnStart(bool playerGroup = false)
     {
+        if (playerGroup && PlayerSpecies)
+            TemporaryBlockModifier = 0;
+        else if (!playerGroup && !PlayerSpecies)
+            TemporaryBlockModifier = 0;
+
         CurrentEnergy = EnergyPerTurn;
         foreach (var part in _skillCooldowns.Keys.ToList())
         {
@@ -296,11 +302,6 @@ public class Species
 
     public void OnTurnEnd(bool playerGroup = false)
     {
-        if (playerGroup && !PlayerSpecies)
-            TemporaryBlockModifier = 0;
-        else if (!playerGroup && PlayerSpecies)
-            TemporaryBlockModifier = 0;
-
         foreach (var part in Parts)
             part.OnTurnEnd(this);
     }
@@ -346,13 +347,14 @@ public class Species
         foreach (var part in Parts)
             part.OnDefendAction(this);
 
+        int blockToAdd = ApplyRandomMultiplier(ActionDefense(sourcePart), DefendBlockMultiplierRange);
         if (PersistTempBlock)
         {
-            CurrentBlock += ActionDefense(sourcePart);
+            CurrentBlock += blockToAdd;
         }
         else
         {
-            TemporaryBlockModifier += ActionDefense(sourcePart);
+            TemporaryBlockModifier += blockToAdd;
         }
 
         int blockGained = Block - blockBefore;
@@ -383,7 +385,7 @@ public class Species
         return Parts.Any(part => part.ProvidesSpecialAction(action));
     }
 
-    public void AttackAction(Species enemy, Part sourcePart = null)
+    public void AttackAction(Species enemy, Part sourcePart = null, float? attackDamageMultiplierRoll = null)
     {
         var damage = ActionAttack(sourcePart);
 
@@ -398,6 +400,10 @@ public class Species
         foreach (var part in Parts)
             part.OnAttack(this, enemy, ref damage);
 
+        damage = attackDamageMultiplierRoll.HasValue
+            ? ApplyDamageMultiplier(damage, attackDamageMultiplierRoll.Value)
+            : ApplyRandomMultiplier(damage, AttackDamageMultiplierRange);
+
         int healthBefore = enemy.CurrentHealth;
         enemy.TakeDamage(this, ref damage);
         int healthLost = Mathf.Max(0, Mathf.Min(healthBefore, healthBefore - enemy.CurrentHealth));
@@ -408,6 +414,34 @@ public class Species
 
         foreach (var part in Parts)
             part.OnEndAttackAction(this);
+    }
+
+    static int ApplyRandomMultiplier(int value, float variationRange)
+    {
+        if (value <= 0)
+        {
+            return 0;
+        }
+
+        float range = Mathf.Max(0f, variationRange);
+        float multiplier = UnityEngine.Random.Range(1f - range, 1f + range);
+        return ApplyDamageMultiplier(value, multiplier);
+    }
+
+    public float RollAttackDamageMultiplier()
+    {
+        float range = Mathf.Max(0f, AttackDamageMultiplierRange);
+        return UnityEngine.Random.Range(1f - range, 1f + range);
+    }
+
+    public static int ApplyDamageMultiplier(int value, float multiplier)
+    {
+        if (value <= 0)
+        {
+            return 0;
+        }
+
+        return Mathf.Max(1, Mathf.RoundToInt(value * multiplier));
     }
 
     public int GetStrengthAdjustedAttackDamage(Species enemy) =>

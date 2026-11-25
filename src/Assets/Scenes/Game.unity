@@ -187,7 +187,7 @@ MonoBehaviour:
   GameEndPanel: {fileID: 2100000004}
   ShopPanel: {fileID: 2000000004}
   _turnDelaySeconds: 0.35
-  _gameEndDelaySeconds: 0.75
+  _gameEndDelaySeconds: 1.25
 --- !u!114 &74201796
 MonoBehaviour:
   m_ObjectHideFlags: 0

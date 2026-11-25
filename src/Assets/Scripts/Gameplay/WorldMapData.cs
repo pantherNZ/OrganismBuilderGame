@@ -46,7 +46,9 @@ public class WorldMapData
     /// </summary>
     public const int CellSize = 200;
 
-    public const int MaxEncounterCount = 100;
+    public const int EncounterRingCount = 3;
+    public const int FinalBossNodeCount = 4;
+    const int FirstRingCapacity = 8;
     const int StartingNodeClearanceSquared = 9;
 
     // ── Data ──────────────────────────────────────────────────────────────────
@@ -130,10 +132,9 @@ public class WorldMapData
         }
 
         int locationCount = availableSchemas.Count > 0
-            ? MaxEncounterCount
+            ? GetEncounterCountForRings()
             : startingEncounters.Count + (shopSchema != null ? 1 : 0);
 
-        const int firstRingCapacity = 8;
         const float baseRadius = 4f;
         const float ringSpacing = 3f;
         const int initiallyAccessibleEncounters = 1;
@@ -151,6 +152,7 @@ public class WorldMapData
             {
                 Position = startingPositions[index],
                 Depth = 1,
+                DifficultyScale = 1f,
             };
             Add(node);
             locations.Add(node);
@@ -171,8 +173,10 @@ public class WorldMapData
         while (locations.Count < locationCount)
         {
             ringIndex++;
-            int ringCapacity = firstRingCapacity * ringIndex;
-            int ringNodeCount = Mathf.Min(ringCapacity, locationCount - locations.Count);
+            int ringCapacity = FirstRingCapacity * ringIndex;
+            int existingRingNodeCount = CountNodesInRing(locations, ringIndex);
+            int remainingRingCapacity = Mathf.Max(0, ringCapacity - existingRingNodeCount);
+            int ringNodeCount = Mathf.Min(remainingRingCapacity, locationCount - locations.Count);
 
             float ringOffset = rng.value * (Mathf.PI * 2.0f);
             float angleJitterMult = 0.5f;
@@ -204,8 +208,8 @@ public class WorldMapData
         int shopIndex = -1;
         if (shopSchema != null)
         {
-            // Prefer rings 2-4, but never displace the ordered starting encounters.
-            int minimumIndex = Mathf.Max(startingEncounters.Count, Mathf.Min(firstRingCapacity, locationCount - 1));
+            // Prefer outer rings, but never displace the ordered starting encounters.
+            int minimumIndex = Mathf.Max(startingEncounters.Count, Mathf.Min(FirstRingCapacity, locationCount - 1));
             int maximumIndex = Mathf.Max(minimumIndex, Mathf.Min(locationCount - 1, 79));
             shopIndex = rng.Range(minimumIndex, maximumIndex + 1);
         }
@@ -229,7 +233,7 @@ public class WorldMapData
             else
             {
                 var difficultyCurve = GlobalConstantsHandler.Constants?.EncounterDifficultyScaling;
-                float difficultyToSpend = 1f + (difficultyCurve?.Evaluate(distanceFromStart) ?? 0f);
+                float difficultyToSpend = (difficultyCurve?.Evaluate(distanceFromStart) ?? 0f) * GlobalConstantsHandler.Constants.DifficultyScalerModifier;
                 encounter = PurchaseEncounter(availableSchemas, difficultyToSpend, rng);
                 if (encounter == null)
                 {
@@ -238,7 +242,8 @@ public class WorldMapData
                     continue;
                 }
 
-                ScaleEncounter(encounter, distanceFromStart * GlobalConstantsHandler.Constants.DifficultyScalerModifier);
+                node.DifficultyScale = difficultyToSpend;
+                ScaleEncounter(encounter, distanceFromStart);
             }
 
             node.Encounter = encounter;
@@ -252,50 +257,134 @@ public class WorldMapData
             }
         }
 
-        if (populatedLocations.Count > 0)
-        {
-            Connect(StartNode, populatedLocations[0]);
-        }
+        List<WorldMapNode> finalBossNodes = CreateFinalBossNodes(
+            availableSchemas,
+            rng,
+            baseRadius + EncounterRingCount * ringSpacing);
 
-        for (int index = 1; index < populatedLocations.Count; index++)
-        {
-            Connect(populatedLocations[index - 1], populatedLocations[index]);
-        }
-
-        var ringNodes = new List<WorldMapNode>();
-        int currentRing = 0;
+        var rings = new SortedDictionary<int, List<WorldMapNode>>();
         for (int index = 0; index < populatedLocations.Count; index++)
         {
             var node = populatedLocations[index];
             if (node.Type != WorldMapNodeType.Shop)
             {
-                node.Type = index == populatedLocations.Count - 1 ? WorldMapNodeType.Boss :
-                    index % 4 == 3 ? WorldMapNodeType.Elite : WorldMapNodeType.Combat;
+                node.Type = index % 4 == 3 ? WorldMapNodeType.Elite : WorldMapNodeType.Combat;
             }
 
-            if (node.Depth != currentRing)
+            if (!rings.TryGetValue(node.Depth, out List<WorldMapNode> ringNodes))
             {
-                if (ringNodes.Count > 2)
-                {
-                    Connect(ringNodes[^1], ringNodes[0]);
-                }
-
-                ringNodes.Clear();
-                currentRing = node.Depth;
-            }
-
-            if (ringNodes.Count > 0)
-            {
-                Connect(ringNodes[^1], node);
+                ringNodes = new List<WorldMapNode>();
+                rings.Add(node.Depth, ringNodes);
             }
 
             ringNodes.Add(node);
         }
 
-        if (ringNodes.Count > 2)
+        List<WorldMapNode> previousRing = null;
+        foreach (var ring in rings)
         {
-            Connect(ringNodes[^1], ringNodes[0]);
+            List<WorldMapNode> connectionRing = ring.Value;
+            if (ring.Key == 1 && _firstStartingNode != null && _secondStartingNode != null)
+            {
+                connectionRing = new List<WorldMapNode>(ring.Value);
+                connectionRing.Remove(_firstStartingNode);
+                Connect(_firstStartingNode, _secondStartingNode);
+            }
+
+            connectionRing.Sort(CompareNodesByAngle);
+            for (int index = 0; index < connectionRing.Count; index++)
+            {
+                if (connectionRing.Count > 1)
+                {
+                    Connect(connectionRing[index], connectionRing[(index + 1) % connectionRing.Count]);
+                }
+            }
+
+            if (previousRing == null)
+            {
+                WorldMapNode startNeighbor = null;
+                foreach (var candidate in ring.Value)
+                {
+                    if (candidate.IsAccessible)
+                    {
+                        startNeighbor = candidate;
+                        break;
+                    }
+                }
+
+                Connect(StartNode, startNeighbor ?? FindNearestNode(StartNode, ring.Value));
+            }
+            else
+            {
+                foreach (var outerNode in connectionRing)
+                {
+                    Connect(outerNode, FindNearestNode(outerNode, previousRing));
+                }
+            }
+
+            previousRing = connectionRing;
         }
+
+        foreach (var bossNode in finalBossNodes)
+        {
+            Connect(bossNode, FindNearestNode(bossNode, previousRing));
+        }
+    }
+
+    List<WorldMapNode> CreateFinalBossNodes(
+        IReadOnlyList<EncounterSchema> availableSchemas,
+        Utility.IRandom rng,
+        float radius)
+    {
+        var bossSchemas = new List<EncounterSchema>();
+        foreach (var schema in availableSchemas)
+            if (schema.encounterType == EncounterType.Boss)
+                bossSchemas.AddRange(availableSchemas);
+
+        if (bossSchemas.Count == 0)
+        {
+            return new List<WorldMapNode>();
+        }
+
+        int bossRadius = Mathf.CeilToInt(radius);
+        var positions = new[]
+        {
+            new MapPoint(0, -bossRadius),
+            new MapPoint(0, bossRadius),
+            new MapPoint(-bossRadius, 0),
+            new MapPoint(bossRadius, 0),
+        };
+
+        var bossNodes = new List<WorldMapNode>(FinalBossNodeCount);
+        foreach (MapPoint position in positions)
+        {
+            var bossNode = new WorldMapNode
+            {
+                Position = FindNearestFreePosition(position),
+                Depth = EncounterRingCount + 1,
+                Type = WorldMapNodeType.Boss,
+            };
+
+            float distanceFromStart = ((Vector2Int)bossNode.Position).magnitude;
+            var difficultyCurve = GlobalConstantsHandler.Constants?.EncounterDifficultyScaling;
+            float difficultyToSpend = (difficultyCurve?.Evaluate(distanceFromStart) ?? 0f)
+                * GlobalConstantsHandler.Constants.DifficultyScalerModifier;
+            Encounter encounter = PurchaseEncounter(bossSchemas, difficultyToSpend, rng);
+            if (encounter == null)
+            {
+                EncounterSchema fallbackSchema = bossSchemas[rng.Range(0, bossSchemas.Count)];
+                encounter = fallbackSchema.CreateEncounter();
+            }
+
+            bossNode.Encounter = encounter;
+            bossNode.DifficultyScale = difficultyToSpend;
+            bossNode.IsVisited = encounter.IsCompleted && encounter.PlayerWon;
+            ScaleEncounter(encounter, distanceFromStart);
+            Add(bossNode);
+            bossNodes.Add(bossNode);
+        }
+
+        return bossNodes;
     }
 
     static Encounter PurchaseEncounter(
@@ -377,6 +466,75 @@ public class WorldMapData
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    static int GetEncounterCountForRings()
+    {
+        int encounterCount = 0;
+        for (int ringIndex = 1; ringIndex <= EncounterRingCount; ringIndex++)
+        {
+            encounterCount += FirstRingCapacity * ringIndex;
+        }
+
+        return encounterCount;
+    }
+
+    static int CountNodesInRing(IReadOnlyList<WorldMapNode> nodes, int ringIndex)
+    {
+        int count = 0;
+        foreach (var node in nodes)
+        {
+            if (node.Depth == ringIndex)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    static int CompareNodesByAngle(WorldMapNode first, WorldMapNode second)
+    {
+        float firstAngle = Mathf.Atan2(first.Position.Y, first.Position.X);
+        float secondAngle = Mathf.Atan2(second.Position.Y, second.Position.X);
+        int angleComparison = firstAngle.CompareTo(secondAngle);
+        if (angleComparison != 0)
+        {
+            return angleComparison;
+        }
+
+        int distanceComparison = DistanceSquared(first.Position, new MapPoint(0, 0))
+            .CompareTo(DistanceSquared(second.Position, new MapPoint(0, 0)));
+        if (distanceComparison != 0)
+        {
+            return distanceComparison;
+        }
+
+        int xComparison = first.Position.X.CompareTo(second.Position.X);
+        return xComparison != 0 ? xComparison : first.Position.Y.CompareTo(second.Position.Y);
+    }
+
+    static WorldMapNode FindNearestNode(WorldMapNode origin, IReadOnlyList<WorldMapNode> candidates)
+    {
+        if (origin == null || candidates == null || candidates.Count == 0)
+        {
+            return null;
+        }
+
+        WorldMapNode nearest = null;
+        int nearestDistanceSquared = int.MaxValue;
+
+        foreach (var candidate in candidates)
+        {
+            int distanceSquared = DistanceSquared(origin.Position, candidate.Position);
+            if (distanceSquared < nearestDistanceSquared)
+            {
+                nearest = candidate;
+                nearestDistanceSquared = distanceSquared;
+            }
+        }
+
+        return nearest;
+    }
 
     void Add(WorldMapNode node) => _nodes[node.Position] = node;
 

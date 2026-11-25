@@ -39,6 +39,7 @@ MonoBehaviour:
   Behaviors:
   - rid: 5726250351818441378
   MonsterOnly: 0
+  ShowInPartList: 0
   references:
     version: 2
     RefIds:

@@ -74,6 +74,7 @@ public class PartSchema : BaseDataSchema
     public List<PartBehaviorBase> Behaviors = new();
 
     public bool MonsterOnly;
+    public bool ShowInPartList = true;
 
     // ── Factory ───────────────────────────────────────────────────────────────
 

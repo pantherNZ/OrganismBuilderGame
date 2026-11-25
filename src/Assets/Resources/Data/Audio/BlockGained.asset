@@ -18,12 +18,12 @@ MonoBehaviour:
     v: 1574312513
     hasValue: 1
   _triggerHashRecalculate: 0
-  path: 
+  path: Data/Audio/BlockGained
   automaticChainTo: {fileID: 0}
   automaticChainToDelaySec: 0
   startDelaySec: 0
   entries:
-  - clip: {fileID: 8300000, guid: f273d53b9d810194d9b7c146855971cf, type: 3}
+  - clip: {fileID: 8300000, guid: d909cddf645e4394191135ffd7aa5df7, type: 3}
     pitchRange:
       v:
         First: 0

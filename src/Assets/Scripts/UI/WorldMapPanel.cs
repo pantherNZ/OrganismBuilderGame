@@ -64,14 +64,6 @@ public class WorldMapPanel : MonoBehaviour
     IVisualElementScheduledItem _linePulseTask;
 
     // Info sidebar
-    VisualElement _infoEmpty;
-    VisualElement _infoDetail;
-    Label _infoName;
-    Label _infoType;
-    Label _infoDescription;
-    Label _infoDifficulty;
-    VisualElement _infoEnemyList;
-    Label _infoStatus;
     Button _travelBtn;
     Button _openSpeciesBtn;
 
@@ -110,7 +102,6 @@ public class WorldMapPanel : MonoBehaviour
 
         _openSpeciesBtn.clicked += OnOpenSpeciesEditorClicked;
 
-        ShowEmpty();
         Hide();
     }
 
@@ -123,7 +114,6 @@ public class WorldMapPanel : MonoBehaviour
     {
         _mapData = mapData ?? throw new ArgumentNullException(nameof(mapData));
         _hoveredNode = null;
-        ShowEmpty();
 
         BuildCanvas();
         CenterOnPlayerNode();
@@ -366,15 +356,16 @@ public class WorldMapPanel : MonoBehaviour
 
     static string GetNodeDescription(WorldMapNode node)
     {
-        int enemyCount = node.Encounter?.EnemyGroup?.Members?.Count ?? 0;
-        return node.Type switch
+        var description = node.Type switch
         {
-            WorldMapNodeType.Start => "Home waters. Regroup and prepare before venturing deeper.",
-            WorldMapNodeType.Shop => "A mutation market with new parts and species for mutation points.",
+            WorldMapNodeType.Start => "Starting Location.",
+            WorldMapNodeType.Shop => "A mutation market with new parts and organisms for mutation points.",
             WorldMapNodeType.Boss => "An apex threat controls this territory. Expect a decisive battle.",
-            WorldMapNodeType.Elite => $"A dangerous rival force patrols this zone. Enemies spotted: {enemyCount}.",
-            _ => $"Open-water skirmish area with roaming predators. Enemies spotted: {enemyCount}.",
+            WorldMapNodeType.Elite => $"A dangerous enemy organism patrols this zone.",
+            _ => $"A common enemy organism lurks here.",
         };
+        description += $"\n\nDifficulty: {node.DifficultyScale:F2}\nDistance: {((Vector2Int)node.Position).magnitude:F1}";
+        return description;
     }
 
     void PositionHoverPopup(WorldMapNode node)
@@ -455,13 +446,6 @@ public class WorldMapPanel : MonoBehaviour
         RefreshHoverPresentation();
     }
 
-    void ShowEmpty()
-    {
-        _infoEmpty.style.display = DisplayStyle.Flex;
-        _infoDetail.AddToClassList("wmp-info-detail--hidden");
-        _infoDetail.style.display = DisplayStyle.None;
-    }
-
     void OnTravelClicked()
     {
         if (_hoveredNode == null)
@@ -486,12 +470,37 @@ public class WorldMapPanel : MonoBehaviour
 
     void DrawHoverLine(MeshGenerationContext ctx)
     {
-        if (_mapData?.PlayerNode == null)
+        if (_mapData == null)
         {
             return;
         }
 
         var painter = ctx.painter2D;
+        painter.strokeColor = new Color(0.35f, 0.62f, 0.75f, 0.12f);
+        painter.lineWidth = 1.5f;
+
+        foreach (var node in _mapData.Nodes.Values)
+        {
+            foreach (MapPoint connectionPosition in node.Connections)
+            {
+                if (node.Position.X > connectionPosition.X
+                    || (node.Position.X == connectionPosition.X && node.Position.Y >= connectionPosition.Y))
+                {
+                    continue;
+                }
+
+                if (_mapData.Nodes.TryGetValue(connectionPosition, out WorldMapNode connectedNode))
+                {
+                    DrawPathToNode(painter, CanvasPosCenter(node), connectedNode);
+                }
+            }
+        }
+
+        if (_mapData.PlayerNode == null)
+        {
+            return;
+        }
+
         Vector2 from = CanvasPosCenter(_mapData.PlayerNode);
         float pulse = (Mathf.Sin(Time.unscaledTime * 5f) + 1f) * 0.5f;
 

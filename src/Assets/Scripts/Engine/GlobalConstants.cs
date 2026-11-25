@@ -42,7 +42,6 @@ namespace Schema
 
 		[Header("Saves")]
 		[HideInInspector] public string RootSavePath = "SaveGames";
-		//[HideInInspector] public string InventoryOutpostSavePath => "Inventory/outpost";
 
 		public List<PartSchema> CheatParts;
 		public List<PartSchema> StartingParts;

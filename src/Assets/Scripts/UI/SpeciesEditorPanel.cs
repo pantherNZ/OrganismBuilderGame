@@ -64,6 +64,7 @@ public class SpeciesEditorPanel : MonoBehaviour
     Label _statDefenseTotal;
     Label _statForageTotal;
     Button _beginButton;
+    readonly Dictionary<VisualElement, string> _statTooltipDescriptions = new();
 
     enum TutorialStep
     {
@@ -290,11 +291,12 @@ public class SpeciesEditorPanel : MonoBehaviour
             return;
         }
 
-        row.tooltip = tooltip;
-        row.UnregisterCallback<PointerEnterEvent>(OnStatPointerEnter);
-        row.UnregisterCallback<PointerLeaveEvent>(OnStatPointerLeave);
-        row.RegisterCallback<PointerEnterEvent>(OnStatPointerEnter);
-        row.RegisterCallback<PointerLeaveEvent>(OnStatPointerLeave);
+        _statTooltipDescriptions[row] = tooltip;
+        row.tooltip = string.Empty;
+        row.UnregisterCallback<PointerEnterEvent>(OnStatPointerEnter, TrickleDown.TrickleDown);
+        row.UnregisterCallback<PointerLeaveEvent>(OnStatPointerLeave, TrickleDown.TrickleDown);
+        row.RegisterCallback<PointerEnterEvent>(OnStatPointerEnter, TrickleDown.TrickleDown);
+        row.RegisterCallback<PointerLeaveEvent>(OnStatPointerLeave, TrickleDown.TrickleDown);
     }
 
     void BuildTutorialCallout()
@@ -369,10 +371,10 @@ public class SpeciesEditorPanel : MonoBehaviour
 
         _tutorialCalloutText.text = step switch
         {
-            TutorialStep.StartingPart => "Drag and drop your starting trait onto your organism to add it",
-            TutorialStep.Stats => "These are your organisms base stats, they are affected by different traits and they drive the strength of different actions. Hover any stat to learn more",
-            TutorialStep.Actions => "These are your actions available during fights, they are affected by your organism's stats and new actions are granted through different traits",
-            TutorialStep.EnterWorld => "let's go to the world to begin your first fight",
+            TutorialStep.StartingPart => "Drag and drop your starting trait onto your organism to add it.",
+            TutorialStep.Stats => "These are your organism's base stats, they are affected by different traits and they drive the strength of different actions. Hover any stat to learn more.",
+            TutorialStep.Actions => "These are your actions available during fights which are granted through different traits. They are affected by your organism's stats but also have their own stats and abilities.",
+            TutorialStep.EnterWorld => "Go to the world to begin your first encounter.",
             _ => string.Empty,
         };
         _tutorialCallout.style.display = DisplayStyle.Flex;
@@ -385,16 +387,28 @@ public class SpeciesEditorPanel : MonoBehaviour
         SetTutorialStep(TutorialStep.None);
     }
 
-    void OnStatPointerEnter(PointerEnterEvent _)
+    void OnStatPointerEnter(PointerEnterEvent evt)
     {
+        if (evt.currentTarget is VisualElement row
+            && _statTooltipDescriptions.TryGetValue(row, out string description))
+        {
+            Label title = row.Q<Label>(className: "sep-stat-label");
+            ShowEditorTooltip(row, title?.text ?? string.Empty, description);
+        }
+
         if (_tutorialStep == TutorialStep.Stats)
         {
             _tutorialStatHovered = true;
         }
     }
 
-    void OnStatPointerLeave(PointerLeaveEvent _)
+    void OnStatPointerLeave(PointerLeaveEvent evt)
     {
+        if (evt.currentTarget is VisualElement row)
+        {
+            HideSkillTooltip(row);
+        }
+
         if (_tutorialStep == TutorialStep.Stats && _tutorialStatHovered)
         {
             SetTutorialStep(TutorialStep.Actions);
@@ -851,15 +865,28 @@ public class SpeciesEditorPanel : MonoBehaviour
 
         string tooltip = button.tooltip ?? string.Empty;
         int separator = tooltip.IndexOf('\n');
-        _skillTooltipTitle.text = separator < 0 ? tooltip : tooltip.Substring(0, separator);
-        _skillTooltipDescription.text = separator < 0 ? string.Empty : tooltip.Substring(separator + 1);
-        _skillTooltipAnchor = button;
+        string title = separator < 0 ? tooltip : tooltip.Substring(0, separator);
+        string description = separator < 0 ? string.Empty : tooltip.Substring(separator + 1);
+        ShowEditorTooltip(button, title, description);
+    }
+
+    void ShowEditorTooltip(VisualElement anchor, string title, string description)
+    {
+        if (anchor == null || _skillTooltip == null || _root == null)
+        {
+            return;
+        }
+
+        _skillTooltipTitle.text = title;
+        _skillTooltipDescription.text = description;
+        _skillTooltipAnchor = anchor;
         _skillTooltip.style.display = DisplayStyle.Flex;
+        _skillTooltip.BringToFront();
         _root.schedule.Execute(() =>
         {
-            if (_skillTooltipAnchor == button)
+            if (_skillTooltipAnchor == anchor)
             {
-                PositionSkillTooltip(button);
+                PositionSkillTooltip(anchor);
             }
         });
     }

@@ -4,9 +4,8 @@
         <ui:VisualElement name="bp-arena" class="bp-arena">
             <ui:VisualElement name="bp-health-bar-layer" class="bp-health-bar-layer"/>
             <ui:VisualElement name="bp-species-visual-layer" picking-mode="Ignore" class="bp-species-visual-layer"/>
-            <ui:VisualElement name="bp-player-species-strip" class="bp-species-strip bp-species-strip--player"/>
-            <ui:VisualElement name="bp-enemy-species-strip" class="bp-species-strip bp-species-strip--enemy"/>
         </ui:VisualElement>
+        <ui:Label name="bp-turn-status" text="YOUR TURN" picking-mode="Ignore" class="bp-turn-status bp-turn-status--player"/>
         <ui:VisualElement name="bp-energy-counter" class="bp-energy-counter" style="bottom: 352px; left: 1px; width: 129px; height: 119px;">
             <ui:Label text="CURRENT ENERGY" class="bp-energy-counter__label"/>
             <ui:VisualElement class="bp-energy-counter__value-row">

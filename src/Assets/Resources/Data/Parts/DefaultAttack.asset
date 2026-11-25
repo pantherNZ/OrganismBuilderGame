@@ -18,7 +18,7 @@ MonoBehaviour:
     v: 285839692
     hasValue: 1
   _triggerHashRecalculate: 0
-  path: Data/Parts/Adjacent_Strike
+  path: Data/Parts/DefaultAttack
   displayName: 
   Description: 
   Rarity: 0
@@ -37,7 +37,8 @@ MonoBehaviour:
   Health: 0
   Size: 0
   Behaviors: []
-  MonsterOnly: 0
+  MonsterOnly: 1
+  ShowInPartList: 0
   references:
     version: 2
     RefIds: []

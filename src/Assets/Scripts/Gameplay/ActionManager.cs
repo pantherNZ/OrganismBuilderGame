@@ -18,6 +18,7 @@ public struct SpeciesAction
     public SpeciesActionType Type;
     public Part SourcePart;
     public List<Species> Targets;
+    public float? AttackDamageMultiplierRoll;
 }
 
 public class ActionManager

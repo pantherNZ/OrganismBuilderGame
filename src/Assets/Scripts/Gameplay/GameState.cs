@@ -13,6 +13,7 @@ public class GameState : EventReceiver
     public const int RewardPartChoices = 3;
     public const int MutationPointsPerWin = 2;
     public const int StartingEncounterCount = 2;
+    private const float EncounterTraitRewardWeightMultiplier = 1.25f;
 
     // -------------------------------------------------------------------------
     // State
@@ -251,6 +252,7 @@ public class GameState : EventReceiver
     public void Restart()
     {
         IsGameOver = false;
+        CurrentEncounter = null;
         PendingRewardChoices.Clear();
         Start();
     }
@@ -462,6 +464,27 @@ public class GameState : EventReceiver
         float centre = TargetRarityValue();
         // Spread widens slightly at mid-progress so the player sees variety
         float sigma = 0.8f + 0.4f * (float)Math.Sin(Math.PI * centre / (int)PartRarity.Legendary);
+        var encounterTraitSchemas = new HashSet<PartSchema>();
+        if (CurrentEncounter?.EnemyGroup != null)
+        {
+            foreach (var enemy in CurrentEncounter.EnemyGroup.Members)
+            {
+                if (enemy?.Parts == null)
+                {
+                    continue;
+                }
+
+                foreach (var part in enemy.Parts)
+                {
+                    if (part?.Schema == null || Species.IsBuiltInActionPart(part, part.ActionType))
+                    {
+                        continue;
+                    }
+
+                    encounterTraitSchemas.Add(part.Schema);
+                }
+            }
+        }
 
         // Build weighted pool — duplicate entries raise their probability
         var weightedPool = new List<PartSchema>();
@@ -473,6 +496,11 @@ public class GameState : EventReceiver
             }
 
             float weight = GaussianWeight((float)part.Rarity, centre, sigma);
+            if (encounterTraitSchemas.Contains(part))
+            {
+                weight *= EncounterTraitRewardWeightMultiplier;
+            }
+
             // Convert weight to a ticket count (1-20) so we can do simple random picks
             int tickets = Math.Max(1, (int)Math.Round(weight * 20));
             for (int t = 0; t < tickets; t++)

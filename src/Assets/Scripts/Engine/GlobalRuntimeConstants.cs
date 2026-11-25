@@ -65,6 +65,13 @@ namespace Runtime.Game
 		public Save.PlayerSave playerSave => _playerSave ??= GetSave<Save.PlayerSave>("Player");
 		public Save.GameStateSave gameStateSave => _gameStateSave ??= GetSave<Save.GameStateSave>("GameState");
 
+		public void DeleteGameStateSave()
+		{
+			string path = _gameStateSave?.path ?? GetPath("GameState");
+			Save.SaveManager.Instance?.DeleteSave(path);
+			_gameStateSave = null;
+		}
+
 		public Save.SaveMetaData saveMetaData
 		{
 			get

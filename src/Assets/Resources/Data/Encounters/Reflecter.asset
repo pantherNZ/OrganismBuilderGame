@@ -18,11 +18,12 @@ MonoBehaviour:
     v: 1625366764
     hasValue: 1
   _triggerHashRecalculate: 0
-  path: Data/Encounters/Basic_Predator
+  path: Data/Encounters/Reflecter
   MinDepth: 0
   MaxDepth: 0
   Weight: 1
   DifficultyMultiplier: 1
   StartEncounter: 0
   EnemyGroup: {fileID: 0}
-  EnemySpecies: {fileID: 11400000, guid: 714e982b1258fb0459cbbfc4a332d26f, type: 2}
+  EnemySpecies: {fileID: 11400000, guid: caf94227e0758df45b62e01fa68cbc72, type: 2}
+  encounterType: 0

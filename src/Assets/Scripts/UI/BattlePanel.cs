@@ -51,8 +51,6 @@ public class BattlePanel : MonoBehaviour
     VisualElement _healthBarLayer;
     VisualElement _speciesVisualLayer;
     Button _endTurnBtn;
-    VisualElement _playerSpeciesStrip;
-    VisualElement _enemySpeciesStrip;
 
     // Species info overlay
     VisualElement _speciesInfo;
@@ -69,6 +67,7 @@ public class BattlePanel : MonoBehaviour
 
     // Action tray
     Label _roundLabel;
+    Label _turnStatusLabel;
     Label _energyValueLabel;
     Label _energySpeciesLabel;
     ScrollView _logScroll;
@@ -79,9 +78,6 @@ public class BattlePanel : MonoBehaviour
     BattleData _data;
     Species _selectedPlayerSpecies;
     readonly List<Species> _selectablePlayerSpecies = new();
-    readonly Dictionary<Species, VisualElement> _speciesChips = new();
-    readonly Dictionary<Species, Label> _speciesChipHpLabels = new();
-    readonly Dictionary<Species, Label> _speciesChipSizeLabels = new();
     ActionManager _actionManager;
     readonly Dictionary<Species, SpeciesAction> _enemyIntents = new();
     bool _stepControlsEnabled = true;
@@ -136,8 +132,6 @@ public class BattlePanel : MonoBehaviour
         _healthBarLayer = _root.Q("bp-health-bar-layer");
         _speciesVisualLayer = _root.Q("bp-species-visual-layer");
         _endTurnBtn = _root.Q<Button>("bp-end-turn-btn");
-        _playerSpeciesStrip = _root.Q("bp-player-species-strip");
-        _enemySpeciesStrip = _root.Q("bp-enemy-species-strip");
         _speciesInfo = _root.Q("bp-species-info");
         _infoName = _root.Q<Label>("bp-info-name");
         _infoHp = _root.Q<Label>("bp-info-hp");
@@ -149,6 +143,7 @@ public class BattlePanel : MonoBehaviour
         _infoBehaviors = _root.Q("bp-info-behaviors");
         BuildActionTooltip();
         _roundLabel = _root.Q<Label>("bp-round-label");
+        _turnStatusLabel = _root.Q<Label>("bp-turn-status");
         _energyValueLabel = _root.Q<Label>("bp-energy-value");
         _energySpeciesLabel = _root.Q<Label>("bp-energy-species");
         _logScroll = _root.Q<ScrollView>("bp-log-scroll");
@@ -314,7 +309,6 @@ public class BattlePanel : MonoBehaviour
 
         ClearHealthBars();
         ClearSpeciesVisuals();
-        BuildSpeciesStrips(data);
         BuildSpeciesVisuals(data);
         SubscribeToCombatEvents();
         SetRoundAndTurn(1, true);
@@ -360,6 +354,12 @@ public class BattlePanel : MonoBehaviour
     public void SetRoundAndTurn(int round, bool isPlayerTurn)
     {
         _roundLabel.text = $"TURN {round} - {(isPlayerTurn ? "PLAYER TURN" : "ENEMY TURN")}";
+        _turnStatusLabel.text = isPlayerTurn ? "YOUR TURN" : "ENEMY TURN";
+        _turnStatusLabel.RemoveFromClassList("bp-turn-status--player");
+        _turnStatusLabel.RemoveFromClassList("bp-turn-status--enemy");
+        _turnStatusLabel.AddToClassList(isPlayerTurn
+            ? "bp-turn-status--player"
+            : "bp-turn-status--enemy");
     }
 
     public void SetEnemyIntents(IEnumerable<SpeciesAction> actions)
@@ -381,7 +381,11 @@ public class BattlePanel : MonoBehaviour
             if (_enemyIntents.TryGetValue(kv.Key, out SpeciesAction intent))
             {
                 Species target = intent.Targets?.FirstOrDefault(candidate => candidate != null && candidate.IsAlive);
-                kv.Value.SetIntentAction(intent.Type, target, intent.SourcePart);
+                kv.Value.SetIntentAction(
+                    intent.Type,
+                    target,
+                    intent.SourcePart,
+                    intent.AttackDamageMultiplierRoll);
             }
             else
             {
@@ -415,7 +419,6 @@ public class BattlePanel : MonoBehaviour
                 _actionManager.Clear();
         }
 
-        RefreshSpeciesSelectionVisuals();
         RefreshActionChoiceVisuals();
         RefreshPlayerEnergyCounter();
     }
@@ -466,37 +469,13 @@ public class BattlePanel : MonoBehaviour
 
     public void RefreshSpeciesVisuals()
     {
-        foreach (var kv in _speciesChips)
-        {
-            Utility.UI.EnableClass(!kv.Key.IsAlive, kv.Value, "bp-species-chip--dead");
-
-            if (_speciesChipHpLabels.TryGetValue(kv.Key, out var hp))
-                hp.text = $"HP {Mathf.Max(0, kv.Key.CurrentHealth)}/{Mathf.Max(1, kv.Key.MaxHealth)}";
-
-            if (_speciesChipSizeLabels.TryGetValue(kv.Key, out var size))
-            {
-                size.text = $"SIZE {kv.Key.Size}  STR {kv.Key.Strength}";
-            }
-        }
-
         foreach (var kv in _speciesVisuals)
             kv.Value.style.opacity = kv.Key.IsAlive ? 1f : 0.3f;
 
         RefreshDefenseIndicators();
         RefreshArenaSpeciesVisuals();
-        RefreshSpeciesSelectionVisuals();
         RefreshActionChoiceVisuals();
         RefreshPlayerEnergyCounter();
-    }
-
-    void RefreshSpeciesSelectionVisuals()
-    {
-        foreach (var kv in _speciesChips)
-        {
-            bool isSelectable = _selectablePlayerSpecies.Contains(kv.Key);
-            Utility.UI.EnableClass(isSelectable, kv.Value, "bp-species-chip--selectable");
-            Utility.UI.EnableClass(kv.Key == _selectedPlayerSpecies, kv.Value, "bp-species-chip--selected");
-        }
     }
 
     void RefreshPlayerEnergyCounter()
@@ -526,7 +505,7 @@ public class BattlePanel : MonoBehaviour
 
     /// <summary>
     /// Populates and shows the species info overlay with <paramref name="species"/> data.
-    /// Uses the matching arena visual or species chip as the popup anchor when available.
+    /// Uses the matching arena visual as the popup anchor when available.
     /// </summary>
     public void ShowTooltip(Species species)
     {
@@ -535,8 +514,6 @@ public class BattlePanel : MonoBehaviour
         VisualElement trigger = null;
         if (_speciesVisuals.TryGetValue(species, out var visual))
             trigger = visual;
-        else if (_speciesChips.TryGetValue(species, out var chip))
-            trigger = chip;
 
         ShowTooltip(species, trigger, _data?.EnemyGroup?.Contains(species) == true);
     }
@@ -558,12 +535,17 @@ public class BattlePanel : MonoBehaviour
 
         _infoBehaviors.Clear();
         foreach (var part in species.Parts)
+        {
+            if (!part.Schema.ShowInPartList)
+                continue;
+
             foreach (var behavior in part.Behaviors)
             {
                 var tag = new Label(FormatBehaviorName(behavior));
                 tag.AddToClassList("bp-behavior-tag");
                 _infoBehaviors.Add(tag);
             }
+        }
 
         _speciesInfo.RemoveFromClassList("bp-hidden");
         _root.schedule.Execute(() =>
@@ -878,7 +860,11 @@ public class BattlePanel : MonoBehaviour
         if (isEnemySpecies && _enemyIntents.TryGetValue(species, out SpeciesAction intent))
         {
             Species target = intent.Targets?.FirstOrDefault(candidate => candidate != null && candidate.IsAlive);
-            bar.SetIntentAction(intent.Type, target, intent.SourcePart);
+            bar.SetIntentAction(
+                intent.Type,
+                target,
+                intent.SourcePart,
+                intent.AttackDamageMultiplierRoll);
         }
 
         _healthBarLayer.Add(bar);
@@ -927,8 +913,6 @@ public class BattlePanel : MonoBehaviour
         VisualElement targetVisual = null;
         if (_speciesVisuals.TryGetValue(target, out var speciesVisual))
             targetVisual = speciesVisual;
-        else if (_speciesChips.TryGetValue(target, out var chip))
-            targetVisual = chip;
         else if (_healthBars.TryGetValue(target, out var bar))
             targetVisual = bar;
 
@@ -953,8 +937,6 @@ public class BattlePanel : MonoBehaviour
         VisualElement targetVisual = null;
         if (_speciesVisuals.TryGetValue(target, out var speciesVisual))
             targetVisual = speciesVisual;
-        else if (_speciesChips.TryGetValue(target, out var chip))
-            targetVisual = chip;
         else if (_healthBars.TryGetValue(target, out var bar))
             targetVisual = bar;
 
@@ -1086,71 +1068,6 @@ public class BattlePanel : MonoBehaviour
         _healthBars.Clear();
     }
 
-    void BuildSpeciesStrips(BattleData data)
-    {
-        _speciesChips.Clear();
-        _speciesChipHpLabels.Clear();
-        _speciesChipSizeLabels.Clear();
-        _playerSpeciesStrip?.Clear();
-        _enemySpeciesStrip?.Clear();
-
-        if (data?.PlayerGroup != null)
-        {
-            foreach (var species in data.PlayerGroup)
-                _playerSpeciesStrip?.Add(BuildSpeciesChip(species, true));
-        }
-
-        if (data?.EnemyGroup != null)
-        {
-            foreach (var species in data.EnemyGroup)
-                _enemySpeciesStrip?.Add(BuildSpeciesChip(species, false));
-        }
-    }
-
-    VisualElement BuildSpeciesChip(Species species, bool isPlayer)
-    {
-        var chip = new VisualElement();
-        chip.AddToClassList("bp-species-chip");
-
-        var portrait = new Image();
-        portrait.AddToClassList("bp-species-chip__portrait");
-
-        SetSpeciesPortrait(portrait, species);
-
-        chip.Add(portrait);
-
-        var name = new Label(species?.Name?.ToUpper() ?? "SPECIES");
-        name.AddToClassList("bp-species-chip__name");
-        chip.Add(name);
-
-        var hp = new Label(species == null ? "HP --" : $"HP {species.CurrentHealth}/{Mathf.Max(1, species.MaxHealth)}");
-        hp.AddToClassList("bp-species-chip__hp");
-        chip.Add(hp);
-
-        var size = new Label(species == null
-            ? "SIZE --"
-            : $"SIZE {species.Size}  STR {species.Strength}");
-        size.AddToClassList("bp-species-chip__size");
-        chip.Add(size);
-
-        if (species != null)
-        {
-            _speciesChips[species] = chip;
-            _speciesChipHpLabels[species] = hp;
-            _speciesChipSizeLabels[species] = size;
-            chip.RegisterCallback<PointerEnterEvent>(_ => ShowTooltip(species, chip, !isPlayer));
-            chip.RegisterCallback<PointerLeaveEvent>(_ => HideTooltip());
-
-            if (isPlayer)
-            {
-                chip.AddToClassList("bp-species-chip--selectable");
-                chip.RegisterCallback<ClickEvent>(_ => SelectPlayerSpecies(species));
-            }
-        }
-
-        return chip;
-    }
-
     void EmitStepRequest()
     {
         if (!_stepControlsEnabled)
@@ -1239,7 +1156,6 @@ public class BattlePanel : MonoBehaviour
         CancelActionGesture();
         _selectedPlayerSpecies = species;
         _actionManager?.Clear();
-        RefreshSpeciesSelectionVisuals();
         RefreshActionChoiceVisuals();
         RefreshPlayerEnergyCounter();
         AppendCombatLog("Select an action");
@@ -1399,8 +1315,7 @@ public class BattlePanel : MonoBehaviour
                 continue;
             }
 
-            if (kv.Value.worldBound.Contains(worldPosition)
-                || (_speciesChips.TryGetValue(kv.Key, out var chip) && chip.worldBound.Contains(worldPosition)))
+            if (kv.Value.worldBound.Contains(worldPosition))
             {
                 return kv.Key;
             }

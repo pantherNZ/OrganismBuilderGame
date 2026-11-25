@@ -184,7 +184,7 @@ public class CombatSimulator
                         {
                             if (target.IsAlive)
                             {
-                                actor.AttackAction(target, sourcePart);
+                                actor.AttackAction(target, sourcePart, action.AttackDamageMultiplierRoll);
                             }
                         }
                     }

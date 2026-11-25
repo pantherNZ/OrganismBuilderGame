@@ -309,7 +309,11 @@ public class SpeciesHealthBarElement : VisualElement
         }
     }
 
-    public void SetIntentAction(SpeciesActionType? action, Species attackTarget, Part sourcePart)
+    public void SetIntentAction(
+        SpeciesActionType? action,
+        Species attackTarget,
+        Part sourcePart,
+        float? attackDamageMultiplierRoll = null)
     {
         if (!_intentVisible)
             return;
@@ -333,7 +337,13 @@ public class SpeciesHealthBarElement : VisualElement
         }
         AddActionIcon(_actionIcon, displayPart, action.Value);
 
-        var strength = new Label(ActionStrengthLabel(_species, displayPart, action.Value, attackTarget));
+        var strength = new Label(ActionStrengthLabel(
+            _species,
+            displayPart,
+            action.Value,
+            attackTarget,
+            includeRandomVariation: true,
+            attackDamageMultiplierRoll: attackDamageMultiplierRoll));
         strength.AddToClassList("bp-health-bar__action-btn-strength");
         _actionIcon.Add(strength);
         AddResourceBadges(_actionIcon, _species, displayPart);
@@ -431,15 +441,69 @@ public class SpeciesHealthBarElement : VisualElement
         };
     }
 
-    static string ActionStrengthLabel(Species species, Part part, SpeciesActionType action, Species attackTarget)
+    static string ActionStrengthLabel(
+        Species species,
+        Part part,
+        SpeciesActionType action,
+        Species attackTarget,
+        bool includeRandomVariation = false,
+        float? attackDamageMultiplierRoll = null)
     {
         return action switch
         {
-            SpeciesActionType.Attack => $"ATK {species.ActionAttack(part)}",
+            SpeciesActionType.Attack => AttackStrengthLabel(
+                species,
+                part,
+                attackTarget,
+                includeRandomVariation,
+                attackDamageMultiplierRoll),
             SpeciesActionType.Forage => $"FOR {species.ActionForage(part)}",
-            SpeciesActionType.Defend => $"DEF {species.ActionDefense(part)}",
+            SpeciesActionType.Defend => FormatActionStrength(
+                "DEF",
+                species.ActionDefense(part),
+                includeRandomVariation ? species.DefendBlockMultiplierRange : 0f),
             _ => ActionLabel(action),
         };
+    }
+
+    static string AttackStrengthLabel(
+        Species species,
+        Part part,
+        Species attackTarget,
+        bool includeRandomVariation,
+        float? attackDamageMultiplierRoll)
+    {
+        int baseDamage = species.GetStrengthAdjustedDamage(attackTarget, species.ActionAttack(part));
+        if (attackDamageMultiplierRoll.HasValue)
+        {
+            int rolledDamage = Species.ApplyDamageMultiplier(baseDamage, attackDamageMultiplierRoll.Value);
+            return $"ATK {rolledDamage}";
+        }
+
+        if (includeRandomVariation)
+        {
+            return FormatActionStrength("ATK", baseDamage, species.AttackDamageMultiplierRange);
+        }
+
+        return $"ATK {baseDamage}";
+    }
+
+    static string FormatActionStrength(string label, int baseValue, float variationRange)
+    {
+        if (baseValue <= 0)
+        {
+            return $"{label} 0";
+        }
+
+        float range = Mathf.Max(0f, variationRange);
+        int minimum = Mathf.Max(1, Mathf.RoundToInt(baseValue * (1f - range)));
+        int maximum = Mathf.Max(1, Mathf.RoundToInt(baseValue * (1f + range)));
+        if (minimum == maximum)
+        {
+            return $"{label} {baseValue}";
+        }
+
+        return $"{label} {minimum}-{maximum}";
     }
 
     static string SkillTooltip(Part part, SpeciesActionType actionType)

@@ -21,6 +21,7 @@ namespace Schema
 		ButtonPressInvalid,
 		GameLoss,
 		Heal,
+		LootPicked,
 		PerformAction,
 		TakeDamage,
 		Victory,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Save;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -7,7 +8,7 @@ using UnityEngine.UIElements;
 public class GameEndPanel : MonoBehaviour
 {
     public event Action<Part> OnRewardSelected;
-    public event Action OnExitToWorldRequested;
+    public event Action OnExitToEditorRequested;
 
     UIDocument _document;
     VisualElement _root;
@@ -20,6 +21,7 @@ public class GameEndPanel : MonoBehaviour
     Part _selectedReward;
     VisualElement _selectedLootCard;
     bool _awaitingRewardConfirmation;
+    bool _defeat;
 
     void Awake()
     {
@@ -59,7 +61,7 @@ public class GameEndPanel : MonoBehaviour
         SetResultState(true, "VICTORY", loot == null ? "Reward skipped." : "Reward claimed.");
         _lootTitleLabel.text = loot == null ? "LOOT" : "LOOT ACQUIRED";
         BuildLoot(loot == null ? null : new[] { loot });
-        _primaryButton.text = "EXIT TO WORLD";
+        _primaryButton.text = "EXIT TO EDITOR";
         _primaryButton.SetEnabled(true);
         ShowRoot();
 
@@ -71,10 +73,10 @@ public class GameEndPanel : MonoBehaviour
         _selectedReward = null;
         _selectedLootCard = null;
         _awaitingRewardConfirmation = false;
-        SetResultState(false, "DEFEAT", "Your species were defeated.");
-        _lootTitleLabel.text = "LOOT";
+        SetResultState(false, "DEFEAT", "Your organism was defeated.");
+        _lootTitleLabel.text = string.Empty;
         BuildLoot(null);
-        _primaryButton.text = "EXIT TO WORLD";
+        _primaryButton.text = "PLAY AGAIN";
         _primaryButton.SetEnabled(true);
         ShowRoot();
 
@@ -93,6 +95,7 @@ public class GameEndPanel : MonoBehaviour
         _messageLabel.text = message;
         _titleLabel.EnableInClassList("gep-title--win", victory);
         _titleLabel.EnableInClassList("gep-title--loss", !victory);
+        _defeat = !victory;
     }
 
     void BuildLoot(IReadOnlyList<Part> loot)
@@ -174,6 +177,14 @@ public class GameEndPanel : MonoBehaviour
     {
         Runtime.Audio.SfxManager.Instance.PlayUI(Schema.AudioType.ButtonPress);
 
+        if (_defeat)
+        {
+            Runtime.Game.GlobalConstantsHandler.RuntimeConstants?.DeleteGameStateSave();
+            Hide();
+            OnExitToEditorRequested?.Invoke();
+            return;
+        }
+
         if (_awaitingRewardConfirmation)
         {
             if (_selectedReward == null)
@@ -188,7 +199,7 @@ public class GameEndPanel : MonoBehaviour
         }
 
         Hide();
-        OnExitToWorldRequested?.Invoke();
+        OnExitToEditorRequested?.Invoke();
     }
 
     static string StatsText(Part part)

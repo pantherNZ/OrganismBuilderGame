@@ -2,6 +2,13 @@ using System;
 using Schema;
 using UnityEngine;
 
+public enum EncounterType
+{
+    Regular,
+    Elite,
+    Boss,
+}
+
 /// <summary>
 /// ScriptableObject asset that describes a single encounter on the world map.
 /// Create assets via: Right-click → Create → FishBuilderSim → Encounter Schema.
@@ -31,6 +38,14 @@ public class EncounterSchema : BaseDataSchema
     [Tooltip("Optional single-species enemy. Used when EnemyGroup is empty.")]
     public SpeciesSchema EnemySpecies;
 
+    public EncounterType encounterType = EncounterType.Regular;
+    [Min(0f)]
+    [Tooltip("Maximum proportional variation applied to each enemy attack when used. 0.5 rolls between 50% and 150% damage.")]
+    public float attackDamageMultiplierRange = 0.5f;
+    [Min(0f)]
+    [Tooltip("Maximum proportional variation applied to each enemy defend action when used. 0.5 rolls between 50% and 150% block.")]
+    public float defendBlockMultiplierRange = 0.5f;
+
     public bool HasEnemyDefinition => EnemyGroup != null || EnemySpecies != null;
 
     // ── Factory ───────────────────────────────────────────────────────────────
@@ -41,16 +56,34 @@ public class EncounterSchema : BaseDataSchema
     /// </summary>
     public virtual Encounter CreateEncounter()
     {
+        SpeciesGroup enemyGroup;
         if (EnemyGroup != null)
-            return new Encounter(EnemyGroup.CreateSpeciesGroup());
-
-        if (EnemySpecies != null)
         {
-            var group = new SpeciesGroup(id);
-            group.Add(EnemySpecies.CreateSpecies());
-            return new Encounter(group);
+            enemyGroup = EnemyGroup.CreateSpeciesGroup();
+        }
+        else if (EnemySpecies != null)
+        {
+            enemyGroup = new SpeciesGroup(id);
+            enemyGroup.Add(EnemySpecies.CreateSpecies());
+        }
+        else
+        {
+            throw new InvalidOperationException($"EncounterSchema '{name}' has no EnemyGroup or EnemySpecies configured.");
         }
 
-        throw new InvalidOperationException($"EncounterSchema '{name}' has no EnemyGroup or EnemySpecies configured.");
+        float attackRange = Mathf.Max(0f, attackDamageMultiplierRange);
+        float defendRange = Mathf.Max(0f, defendBlockMultiplierRange);
+        foreach (var species in enemyGroup.Members)
+        {
+            if (species == null)
+            {
+                continue;
+            }
+
+            species.AttackDamageMultiplierRange = attackRange;
+            species.DefendBlockMultiplierRange = defendRange;
+        }
+
+        return new Encounter(enemyGroup);
     }
 }

@@ -27,6 +27,7 @@ public class WorldMapNode
 
     /// <summary>Number of encounter rings from the start node. The start is depth 0.</summary>
     public int Depth;
+    public float DifficultyScale;
 
     public WorldMapNodeType Type;
 
@@ -56,7 +57,7 @@ public class WorldMapNode
     /// <summary>Display name shown on the map.</summary>
     public string DisplayName => Type switch
     {
-        WorldMapNodeType.Start => "HOME WATERS",
+        WorldMapNodeType.Start => "STARTING LOCATION",
         WorldMapNodeType.Shop => "MUTATION MARKET",
         WorldMapNodeType.Boss => encounter_name("ALPHA "),
         WorldMapNodeType.Elite => encounter_name("RIVAL "),

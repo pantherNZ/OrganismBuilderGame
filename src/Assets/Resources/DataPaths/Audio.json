@@ -7,6 +7,7 @@
         "Data/Audio/ButtonPressInvalid",
         "Data/Audio/GameLoss",
         "Data/Audio/Heal",
+        "Data/Audio/LootPicked",
         "Data/Audio/PerformAction",
         "Data/Audio/TakeDamage",
         "Data/Audio/Victory"

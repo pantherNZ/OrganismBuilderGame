@@ -1,33 +1,22 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements"
-         xmlns:uie="UnityEditor.UIElements"
-         xsi="http://www.w3.org/2001/XMLSchema-instance"
-         engine="UnityEngine.UIElements"
-         editor="UnityEditor.UIElements"
-         noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd"
-         editor-extension-mode="False">
-
-    <Style src="project://database/Assets/Resources/UI/ShopPanel.uss" />
-
-    <ui:VisualElement name="shop-overlay" class="shop-overlay">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/Resources/UI/ShopPanel.uss?fileID=7433441132597879392&amp;guid=5982a052d9b3546498eb50e580da954f&amp;type=3#ShopPanel"/>
+    <ui:VisualElement name="shop-overlay" class="shop-overlay" style="top: -1px; bottom: 1px; right: -3px; left: 3px;">
         <ui:VisualElement name="shop-modal" class="shop-modal">
             <ui:VisualElement class="shop-header">
                 <ui:VisualElement>
-                    <ui:Label text="MUTATION MARKET" class="shop-title" />
-                    <ui:Label text="Purchase traits and new organisms with Mutation Points." class="shop-subtitle" />
+                    <ui:Label text="MUTATION MARKET" class="shop-title"/>
+                    <ui:Label text="Purchase traits and new organisms with Mutation Points." class="shop-subtitle"/>
                 </ui:VisualElement>
-                <ui:Label name="shop-points" text="MUTATION POINTS  0" class="shop-points" />
+                <ui:Label name="shop-points" text="MUTATION POINTS  0" class="shop-points" style="color: rgb(255, 250, 250); background-color: rgb(75, 0, 130);"/>
             </ui:VisualElement>
-
-            <ui:Label text="PARTS" class="shop-section-title" />
-            <ui:VisualElement name="shop-part-offers" class="shop-part-offers" />
-
+            <ui:Label text="PARTS" class="shop-section-title"/>
+            <ui:VisualElement name="shop-part-offers" class="shop-part-offers"/>
             <ui:VisualElement class="shop-species-header">
-                <ui:Label text="ORGANISM" class="shop-section-title" />
-                <ui:Label name="shop-species-empty" text="No unowned species available." class="shop-species-empty" />
+                <ui:Label text="ORGANISM" class="shop-section-title"/>
+                <ui:Label name="shop-species-empty" text="No unowned species available." class="shop-species-empty" style="display: none;"/>
             </ui:VisualElement>
-            <ui:VisualElement name="shop-species-offer" class="shop-species-offer" />
-
-            <ui:Button name="shop-leave" text="LEAVE MARKET" class="shop-leave" />
+            <ui:VisualElement name="shop-species-offer" class="shop-species-offer"/>
+            <ui:Button name="shop-leave" text="LEAVE MARKET" class="shop-leave"/>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
