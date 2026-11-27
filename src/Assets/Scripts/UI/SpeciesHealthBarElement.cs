@@ -526,9 +526,13 @@ public class SpeciesHealthBarElement : VisualElement
 
         if (string.IsNullOrWhiteSpace(description))
         {
-            description = actionType == SpeciesActionType.Attack
-                ? "Attack the selected target."
-                : "No description available.";
+            description = actionType switch
+            {
+                SpeciesActionType.Forage => "Forage to increase strength.",
+                SpeciesActionType.Defend => "Defend against the next attack.",
+                SpeciesActionType.Attack => "Attack the selected target.",
+                _ => throw new NotImplementedException(),
+            };
         }
 
         description += part.AttackFromBehaviors > 0 ? $"\nATTACK +{part.AttackFromBehaviors}" : string.Empty;
