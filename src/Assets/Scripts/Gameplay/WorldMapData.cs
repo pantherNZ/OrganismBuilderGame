@@ -441,6 +441,7 @@ public class WorldMapData
                 continue;
 
             species.BaseHealth = ScaleStat(species.BaseHealth, constants?.HPScaling?.Evaluate(distanceFromStart) ?? 1f);
+            species.CurrentHealth = species.BaseHealth;
             species.BaseSize = ScaleStat(species.BaseSize, constants?.SizeScaling?.Evaluate(distanceFromStart) ?? 1f);
             species.BaseAttack = ScaleStat(species.BaseAttack, constants?.AttackScaling?.Evaluate(distanceFromStart) ?? 1f);
             species.BaseDefense = ScaleStat(species.BaseDefense, constants?.DefenseScaling?.Evaluate(distanceFromStart) ?? 1f);

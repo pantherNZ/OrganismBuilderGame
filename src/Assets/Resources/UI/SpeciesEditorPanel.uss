@@ -638,3 +638,117 @@
     -unity-font-style: bold;
     white-space: normal;
 }
+
+.sep-help-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-color: rgba(0, 0, 0, 0.78);
+}
+
+.sep-help-dialog {
+    width: 72%;
+    max-width: 760px;
+    max-height: 90%;
+    flex-shrink: 1;
+    flex-direction: column;
+    padding: 20px 24px;
+    border-width: 2px;
+    border-color: rgb(65, 145, 180);
+    border-radius: 10px;
+    background-color: rgb(8, 24, 40);
+}
+
+.sep-help-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.sep-help-title {
+    color: rgb(140, 220, 255);
+    font-size: 23px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+}
+
+.sep-help-close-button {
+    margin-left: 12px;
+    padding: 7px 10px;
+    border-width: 1px;
+    border-color: rgb(55, 105, 140);
+    border-radius: 4px;
+    background-color: rgba(18, 50, 75, 0.9);
+    color: rgb(180, 220, 240);
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+
+.sep-help-close-button:hover {
+    background-color: rgba(35, 85, 115, 0.95);
+}
+
+.sep-help-subtitle {
+    margin-bottom: 12px;
+    color: rgb(155, 190, 210);
+    font-size: 13px;
+    white-space: normal;
+}
+
+.sep-help-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+    margin-bottom: 12px;
+}
+
+.sep-help-section {
+    flex-direction: column;
+    margin-bottom: 12px;
+    padding: 11px 13px;
+    border-width: 1px;
+    border-color: rgba(55, 115, 150, 0.65);
+    border-radius: 6px;
+    background-color: rgba(13, 39, 59, 0.9);
+}
+
+.sep-help-section--last {
+    margin-bottom: 2px;
+}
+
+.sep-help-section__title {
+    margin-bottom: 5px;
+    color: rgb(135, 215, 180);
+    font-size: 13px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+}
+
+.sep-help-section__body {
+    color: rgb(195, 220, 235);
+    font-size: 12px;
+    white-space: normal;
+}
+
+.sep-help-callout {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-left-width: 3px;
+    border-left-color: rgb(80, 190, 115);
+    background-color: rgba(18, 75, 48, 0.45);
+    color: rgb(180, 245, 195);
+    font-size: 12px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.sep-help-done-button {
+    flex-shrink: 0;
+    margin-top: 0;
+}

@@ -531,6 +531,8 @@ public class SpeciesHealthBarElement : VisualElement
                 SpeciesActionType.Forage => "Forage to increase strength.",
                 SpeciesActionType.Defend => "Defend against the next attack.",
                 SpeciesActionType.Attack => "Attack the selected target.",
+                SpeciesActionType.Blind => "Applies the Blind debuff to the target, causing them to deal 50% less damage.",
+                SpeciesActionType.Heal => "Heals the selected target.",
                 _ => throw new NotImplementedException(),
             };
         }

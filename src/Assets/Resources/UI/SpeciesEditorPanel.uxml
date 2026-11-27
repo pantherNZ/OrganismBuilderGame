@@ -2,13 +2,13 @@
     <Style src="project://database/Assets/Resources/UI/SpeciesEditorPanel.uss?fileID=7433441132597879392&amp;guid=8ac77d5c4236be54bb1db1c217d9d994&amp;type=3#SpeciesEditorPanel"/>
     <ui:VisualElement name="sep-root" class="sep-root">
         <ui:VisualElement name="workspace" class="sep-workspace">
-            <ui:VisualElement name="library-panel" class="sep-panel sep-library-panel">
+            <ui:VisualElement name="library-panel" class="sep-panel sep-library-panel" style="flex-direction: column;">
                 <ui:Label text="TRAIT LIBRARY" class="sep-panel-title" style="font-size: 20px;"/>
                 <ui:TextField name="search-field" placeholder-text="Search parts..." class="sep-search-field"/>
                 <ui:VisualElement name="filter-row" class="sep-filter-row" style="visibility: visible; align-self: stretch; height: 29px;">
                     <ui:Button name="filter-all" text="All" class="sep-filter-btn sep-filter-btn--active" style="border-top-left-radius: 2px; border-top-right-radius: 2px; border-bottom-right-radius: 2px; border-bottom-left-radius: 2px;"/>
                     <ui:Button name="filter-attack" text="Attack" class="sep-filter-btn"/>
-                    <ui:Button name="filter-feeding" text="Feeding" class="sep-filter-btn"/>
+                    <ui:Button name="filter-feeding" text="Foraging" class="sep-filter-btn"/>
                     <ui:Button name="filter-defense" text="Defense" class="sep-filter-btn"/>
                     <ui:Button name="filter-behavior" text="Behavior" class="sep-filter-btn"/>
                     <ui:Button name="filter-mutation" text="Mutation" class="sep-filter-btn"/>
@@ -16,10 +16,11 @@
                 <ui:ScrollView name="library-scroll" horizontal-scroller-visibility="Hidden" class="sep-library-scroll">
                     <ui:VisualElement name="library-grid" class="sep-library-grid"/>
                 </ui:ScrollView>
+                <ui:Button name="help-button" text="HOW TO PLAY" class="sep-save-button" style="height: 55px; font-size: 20px; background-color: rgba(19, 48, 26, 0.8);"/>
             </ui:VisualElement>
             <ui:VisualElement name="editor-panel" class="sep-panel sep-editor-panel">
                 <ui:Label text="ORGANISM EDITOR" class="sep-panel-title" style="font-size: 30px;"/>
-                <ui:Label text="Drag traits into the circle; keep parts inside and non-overlapping." style="font-size: 16px; color: rgb(100, 160, 210); -unity-text-align: upper-center; margin-bottom: 6px;"/>
+                <ui:Label text="Drag traits into your organism" style="font-size: 16px; color: rgb(100, 160, 210); -unity-text-align: upper-center; margin-bottom: 6px;"/>
                 <ui:VisualElement name="fish-preview" class="sep-fish-preview">
                     <ui:VisualElement name="species-canvas" class="sep-species-canvas" style="height: 100%; align-self: center; justify-content: flex-end; flex-direction: column;">
                         <ui:VisualElement name="part-layer" class="sep-part-layer"/>

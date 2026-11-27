@@ -264,6 +264,7 @@ public class GameState : EventReceiver
         {
             Name = "Your Organism",
             BaseHealth = 10,
+            CurrentHealth = 10,
             BaseSize = 10,
             BaseAttack = 2,
             BaseDefense = 0,

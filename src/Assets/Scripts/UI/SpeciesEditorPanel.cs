@@ -64,6 +64,10 @@ public class SpeciesEditorPanel : MonoBehaviour
     Label _statDefenseTotal;
     Label _statForageTotal;
     Button _beginButton;
+    Button _helpButton;
+    Button _helpCloseButton;
+    Button _helpDoneButton;
+    VisualElement _helpOverlay;
     readonly Dictionary<VisualElement, string> _statTooltipDescriptions = new();
 
     enum TutorialStep
@@ -125,6 +129,7 @@ public class SpeciesEditorPanel : MonoBehaviour
         QueryElements();
         BindFilterButtons();
         BindBeginButton();
+        BindHelpControls();
         _searchField.RegisterValueChangedCallback(_ => RefreshLibraryGrid());
 
         _root.UnregisterCallback<PointerMoveEvent>(OnPartDragMove);
@@ -152,6 +157,8 @@ public class SpeciesEditorPanel : MonoBehaviour
         if (_root == null)
             return;
 
+        UnbindHelpControls();
+        HideHelpPanel();
         HideSkillTooltip();
         _root.UnregisterCallback<PointerMoveEvent>(OnPartDragMove);
         _root.UnregisterCallback<PointerUpEvent>(OnPartDragEnd);
@@ -209,6 +216,7 @@ public class SpeciesEditorPanel : MonoBehaviour
 
     public void Hide()
     {
+        HideHelpPanel();
         HideDetailPopup();
         HideSkillTooltip();
         StopTutorial();
@@ -274,6 +282,10 @@ public class SpeciesEditorPanel : MonoBehaviour
         _statDefenseTotal = _root.Q<Label>("stat-defense-total");
         _statForageTotal = _root.Q<Label>("stat-forage-total");
         _beginButton = _root.Q<Button>("begin-button");
+        _helpButton = _root.Q<Button>("help-button");
+        _helpOverlay = _root.Q("help-overlay");
+        _helpCloseButton = _root.Q<Button>("help-close-button");
+        _helpDoneButton = _root.Q<Button>("help-done-button");
 
         BindStatTooltip("stat-row-size", "Affects your organism's size and how it compares with other organisms.");
         BindStatTooltip("stat-row-health", "The amount of damage your organism can take before it is defeated.");
@@ -554,6 +566,73 @@ public class SpeciesEditorPanel : MonoBehaviour
     void BindBeginButton()
     {
         _beginButton?.RegisterCallback<ClickEvent>(_ => OnBegin());
+    }
+
+    void BindHelpControls()
+    {
+        _helpButton?.UnregisterCallback<ClickEvent>(OnHelpButtonClicked);
+        _helpButton?.RegisterCallback<ClickEvent>(OnHelpButtonClicked);
+        _helpCloseButton?.UnregisterCallback<ClickEvent>(OnHelpCloseClicked);
+        _helpCloseButton?.RegisterCallback<ClickEvent>(OnHelpCloseClicked);
+        _helpDoneButton?.UnregisterCallback<ClickEvent>(OnHelpCloseClicked);
+        _helpDoneButton?.RegisterCallback<ClickEvent>(OnHelpCloseClicked);
+        _helpOverlay?.UnregisterCallback<ClickEvent>(OnHelpOverlayClicked);
+        _helpOverlay?.RegisterCallback<ClickEvent>(OnHelpOverlayClicked);
+        _helpOverlay?.UnregisterCallback<KeyDownEvent>(OnHelpOverlayKeyDown, TrickleDown.TrickleDown);
+        _helpOverlay?.RegisterCallback<KeyDownEvent>(OnHelpOverlayKeyDown, TrickleDown.TrickleDown);
+    }
+
+    void UnbindHelpControls()
+    {
+        _helpButton?.UnregisterCallback<ClickEvent>(OnHelpButtonClicked);
+        _helpCloseButton?.UnregisterCallback<ClickEvent>(OnHelpCloseClicked);
+        _helpDoneButton?.UnregisterCallback<ClickEvent>(OnHelpCloseClicked);
+        _helpOverlay?.UnregisterCallback<ClickEvent>(OnHelpOverlayClicked);
+        _helpOverlay?.UnregisterCallback<KeyDownEvent>(OnHelpOverlayKeyDown, TrickleDown.TrickleDown);
+    }
+
+    void OnHelpButtonClicked(ClickEvent _)
+    {
+        if (_helpOverlay == null)
+        {
+            return;
+        }
+
+        _helpOverlay.style.display = DisplayStyle.Flex;
+        _helpOverlay.BringToFront();
+        _helpCloseButton?.Focus();
+    }
+
+    void OnHelpCloseClicked(ClickEvent _)
+    {
+        HideHelpPanel();
+    }
+
+    void OnHelpOverlayClicked(ClickEvent evt)
+    {
+        if (evt.target == _helpOverlay)
+        {
+            HideHelpPanel();
+        }
+    }
+
+    void OnHelpOverlayKeyDown(KeyDownEvent evt)
+    {
+        if (evt.keyCode != KeyCode.Escape)
+        {
+            return;
+        }
+
+        evt.StopPropagation();
+        HideHelpPanel();
+    }
+
+    void HideHelpPanel()
+    {
+        if (_helpOverlay != null)
+        {
+            _helpOverlay.style.display = DisplayStyle.None;
+        }
     }
 
     // ── Refresh sub-sections ──────────────────────────────────
